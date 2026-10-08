@@ -10,8 +10,9 @@ const initialState = {
   isHost: false,
   currentQuestion: 0,
   score: 0,
-  answers: [],
-  gamePhase: 'home', // 'home' | 'lobby' | 'playing' | 'leaderboard'
+  // Local log of every answer this player made (for reliable review)
+  myAnswerLog: [],
+  gamePhase: 'home',
   error: null,
   loading: false,
   lastResult: null,
@@ -31,22 +32,53 @@ function gameReducer(state, action) {
       return { ...state, error: action.payload };
     case 'SET_LOADING':
       return { ...state, loading: action.payload };
-    case 'ANSWER_SUBMITTED':
+    case 'UPDATE_ROOM':
+      return { ...state, room: { ...state.room, ...action.payload } };
+
+    // ✅ Only update score + lastResult. DO NOT advance question here.
+    case 'ANSWER_RESULT':
       return {
         ...state,
         lastResult: action.payload,
         score: action.payload.playerScore,
-        currentQuestion: state.currentQuestion + 1,
-        answers: [...state.answers, action.payload]
+        myAnswerLog: [
+          ...state.myAnswerLog,
+          {
+            questionIndex: action.payload.questionIndex,
+            selected: action.payload.selected,
+            correct: action.payload.isCorrect,
+            points: action.payload.pointsEarned,
+            correctAnswer: action.payload.correctAnswer,
+            explanation: action.payload.explanation,
+            streak: action.payload.currentStreak || 0
+          }
+        ]
       };
-    case 'UPDATE_ROOM':
-      return { ...state, room: { ...state.room, ...action.payload } };
+
+    // ✅ Advance ONLY when Battle says feedback is done
+    case 'NEXT_QUESTION':
+      return {
+        ...state,
+        currentQuestion: state.currentQuestion + 1,
+        lastResult: null
+      };
+
     case 'GAME_STARTED':
-      return { ...state, gamePhase: 'playing', currentQuestion: 0 };
+      return {
+        ...state,
+        gamePhase: 'playing',
+        currentQuestion: 0,
+        score: 0,
+        myAnswerLog: [],
+        lastResult: null
+      };
+
     case 'GAME_FINISHED':
       return { ...state, gamePhase: 'leaderboard' };
+
     case 'RESET':
       return { ...initialState };
+
     default:
       return state;
   }
@@ -55,12 +87,18 @@ function gameReducer(state, action) {
 export function GameProvider({ children }) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const pollingRef = useRef(null);
-  
-  // Ref to always track latest phase without stale closures in setInterval
   const phaseRef = useRef(state.gamePhase);
+
   useEffect(() => {
     phaseRef.current = state.gamePhase;
   }, [state.gamePhase]);
+
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
 
   const startPolling = useCallback((roomCode) => {
     if (pollingRef.current) clearInterval(pollingRef.current);
@@ -71,33 +109,20 @@ export function GameProvider({ children }) {
         if (data.success) {
           dispatch({ type: 'UPDATE_ROOM', payload: data.room });
 
-          // Auto-transition when host starts
           if (data.room.status === 'playing' && phaseRef.current === 'lobby') {
             dispatch({ type: 'GAME_STARTED' });
           }
-          
-          // Auto-transition when all players finish
-          if (data.room.status === 'finished') {
+          if (data.room.status === 'finished' && phaseRef.current !== 'leaderboard') {
             dispatch({ type: 'GAME_FINISHED' });
-            if (pollingRef.current) clearInterval(pollingRef.current);
           }
         }
       } catch (err) {
         console.error('Polling error:', err);
       }
-    }, 1500); // Check every 1.5 seconds for snappy updates
+    }, 1500);
   }, []);
 
-  const stopPolling = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => stopPolling();
-  }, [stopPolling]);
+  useEffect(() => () => stopPolling(), [stopPolling]);
 
   const createRoom = useCallback(async (hostName, topic, questionCount, customSheetUrl) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -113,7 +138,7 @@ export function GameProvider({ children }) {
       } else {
         dispatch({ type: 'SET_ERROR', payload: data.error });
       }
-    } catch (err) {
+    } catch {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to create room' });
     }
     dispatch({ type: 'SET_LOADING', payload: false });
@@ -132,7 +157,7 @@ export function GameProvider({ children }) {
       } else {
         dispatch({ type: 'SET_ERROR', payload: data.error });
       }
-    } catch (err) {
+    } catch {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to join room' });
     }
     dispatch({ type: 'SET_LOADING', payload: false });
@@ -141,35 +166,47 @@ export function GameProvider({ children }) {
   const startGame = useCallback(async () => {
     try {
       const data = await api.startGame(state.roomCode, state.playerName);
-      if (data.success) {
-        dispatch({ type: 'GAME_STARTED' });
-      }
-    } catch (err) {
+      if (data.success) dispatch({ type: 'GAME_STARTED' });
+    } catch {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to start game' });
     }
   }, [state.roomCode, state.playerName]);
 
-  const submitAnswer = useCallback(async (questionIndex, answerIndex, timeTaken) => {
+  // Returns the server result so Battle can show feedback
+  const submitAnswer = useCallback(async (questionIndex, answerIndex) => {
     try {
       const data = await api.submitAnswer({
         roomCode: state.roomCode,
         playerName: state.playerName,
         questionIndex,
-        answerIndex,
-        timeTaken
+        answerIndex
       });
+
       if (data.success) {
-        dispatch({ type: 'ANSWER_SUBMITTED', payload: data });
+        dispatch({
+          type: 'ANSWER_RESULT',
+          payload: {
+            ...data,
+            questionIndex,
+            selected: answerIndex
+          }
+        });
+
         if (data.allFinished) {
-          dispatch({ type: 'GAME_FINISHED' });
+          // slight delay so last feedback can show
+          setTimeout(() => dispatch({ type: 'GAME_FINISHED' }), 1500);
         }
       }
       return data;
-    } catch (err) {
+    } catch {
       dispatch({ type: 'SET_ERROR', payload: 'Failed to submit answer' });
       return null;
     }
   }, [state.roomCode, state.playerName]);
+
+  const nextQuestion = useCallback(() => {
+    dispatch({ type: 'NEXT_QUESTION' });
+  }, []);
 
   const resetGame = useCallback(() => {
     stopPolling();
@@ -187,6 +224,7 @@ export function GameProvider({ children }) {
       joinRoom,
       startGame,
       submitAnswer,
+      nextQuestion,
       resetGame,
       clearError,
       dispatch
