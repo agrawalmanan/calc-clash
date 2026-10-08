@@ -7,16 +7,23 @@ export default function Home() {
   const [name, setName] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [topic, setTopic] = useState('mixed');
+  const [customSheetUrl, setCustomSheetUrl] = useState('');
+
+  const handleCreate = (e) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    // Pass customSheetUrl if provided
+    createRoom(name.trim(), topic, 10, customSheetUrl.trim() || undefined);
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden relative">
-      {/* Decorative Floating Math Symbols */}
+      {/* Decorative Math Symbols */}
       <div className="absolute top-20 left-10 text-5xl opacity-20 animate-float text-brand-purple font-black">∫</div>
-      <div className="absolute bottom-20 right-10 text-6xl opacity-20 animate-float-delayed text-brand-pink font-black">∑</div >
+      <div className="absolute bottom-20 right-10 text-6xl opacity-20 animate-float-delayed text-brand-pink font-black">∑</div>
       <div className="absolute top-40 right-20 text-4xl opacity-20 animate-float text-brand-blue font-black">dx</div>
-      <div className="absolute bottom-40 left-20 text-5xl opacity-20 animate-float-delayed text-brand-yellow font-black">∞</div>
 
-      <div className="text-center mb-10 z-10">
+      <div className="text-center mb-8 z-10">
         <div className="inline-block bg-white px-6 py-2 rounded-full shadow-sm text-sm font-bold text-slate-500 mb-4 border border-slate-100">
           🎓 BTech Engineering Calculus
         </div>
@@ -50,18 +57,34 @@ export default function Home() {
         )}
 
         {mode === 'create' && (
-          <form onSubmit={(e) => { e.preventDefault(); createRoom(name, topic, 10); }} className="card-chunky p-6 space-y-4">
+          <form onSubmit={handleCreate} className="card-chunky p-6 space-y-4">
             <h2 className="text-2xl font-black text-center text-slate-700">Host Room</h2>
-            <input type="text" placeholder="Your Name (Host)" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold focus:border-brand-purple outline-none" required />
-            <select value={topic} onChange={(e) => setTopic(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold focus:border-brand-purple outline-none">
-              <option value="mixed">🎲 Mixed Topics</option>
-              <option value="Limits">Limits</option>
-              <option value="Derivatives">Derivatives</option>
-              <option value="Integrals">Integrals</option>
-            </select>
+            
+            <div>
+              <label className="text-xs font-bold text-slate-400 block mb-1">HOST NAME</label>
+              <input type="text" placeholder="e.g. Prof. Alex" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold focus:border-brand-purple outline-none" required />
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-400 block mb-1">TOPIC</label>
+              <select value={topic} onChange={(e) => setTopic(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold focus:border-brand-purple outline-none">
+                <option value="mixed">🎲 Mixed Topics</option>
+                <option value="Limits">Limits</option>
+                <option value="Derivatives">Derivatives</option>
+                <option value="Integrals">Integrals</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-400 block mb-1">GOOGLE SHEETS CSV LINK (OPTIONAL)</label>
+              <input type="url" placeholder="https://docs.google.com/.../pub?output=csv" value={customSheetUrl} onChange={(e) => setCustomSheetUrl(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-mono focus:border-brand-purple outline-none" />
+              <p className="text-[10px] text-slate-400 mt-1">Leave empty to use default sheet.</p>
+            </div>
+
             <button type="submit" disabled={loading} className="btn-chunky btn-primary w-full py-4 text-xl rounded-xl font-black mt-2">
-              {loading ? 'Creating...' : "Create Room 🏟️"}
+              {loading ? 'Fetching Questions...' : "Create Room 🏟️"}
             </button>
+
             <button type="button" onClick={() => setMode(null)} className="w-full font-bold text-slate-400 mt-2 hover:text-slate-600">Back</button>
           </form>
         )}
