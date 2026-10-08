@@ -2,10 +2,11 @@ import { GameProvider, useGame } from './context/GameContext';
 import Home from './components/Home';
 import Lobby from './components/Lobby';
 import Battle from './components/Battle';
-import Leaderboard from './components/Leaderboard';
+import Leaderboard from './components/Leaderboard'; // Remove this if you deleted the file
+import HostDashboard from './components/HostDashboard'; // Add this line!
 
 function MainRouter() {
-  const { gamePhase, error, clearError } = useGame();
+  const { gamePhase, error, clearError, isHost } = useGame();
 
   return (
     <div className="min-h-screen">
@@ -18,8 +19,9 @@ function MainRouter() {
 
       {gamePhase === 'home' && <Home />}
       {gamePhase === 'lobby' && <Lobby />}
-      {gamePhase === 'playing' && <Battle />}
-      {gamePhase === 'leaderboard' && <Leaderboard />}
+      {/* Route Host to Dashboard, Students to Battle! */}
+      {gamePhase === 'playing' && (isHost ? <HostDashboard /> : <Battle />)}
+      {gamePhase === 'leaderboard' && (isHost ? <HostDashboard /> : <Battle />)}
     </div>
   );
 }

@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    const { roomCode, playerName, questionIndex, answerIndex, timeTaken } = req.body;
+    const { roomCode, playerName, questionIndex, answerIndex } = req.body;
     const code = roomCode?.toUpperCase();
 
     const data = await redis.get(`room:${code}`);
@@ -20,38 +20,45 @@ export default async function handler(req, res) {
     const question = room.questions[questionIndex];
     if (!question) return res.status(400).json({ error: 'Invalid question' });
 
-    const isCorrect = answerIndex === question.correct;
-    
-    // Calculate speed bonus
-    let pointsEarned = 0;
-    if (isCorrect) {
-      const basePoints = question.points || 100;
-      const speedBonus = Math.max(0, Math.floor(((question.timeLimit || 30) - timeTaken) * 2));
-      pointsEarned = basePoints + speedBonus;
+    if (player.answers[questionIndex] !== undefined && player.answers[questionIndex] !== null) {
+      return res.status(400).json({ error: 'Already answered' });
     }
+
+    const isCorrect = answerIndex === question.correct;
+
+    // 🔥 STREAK CALCULATION
+    let currentStreak = 0;
+    for (let i = questionIndex - 1; i >= 0; i--) {
+      if (player.answers[i]?.correct) currentStreak++;
+      else break;
+    }
+    if (isCorrect) currentStreak++; // Add current answer
+
+    // 🔥 1.5x Multiplier for 3+ streak!
+    const isMultiplierActive = currentStreak >= 3;
+    const pointsEarned = isCorrect ? (isMultiplierActive ? 150 : 100) : 0;
 
     player.answers[questionIndex] = {
       selected: answerIndex,
       correct: isCorrect,
       points: pointsEarned,
-      timeTaken
+      streak: currentStreak
     };
-
+    
     player.score += pointsEarned;
     player.currentQuestion = questionIndex + 1;
 
-    // Check if player completed all questions
     if (player.currentQuestion >= room.questions.length) {
       player.finishedAt = Date.now();
     }
 
-    // Check if ALL players are done
-    const allFinished = room.players.every(p => p.finishedAt !== null);
-    if (allFinished) {
-      room.status = 'finished';
-    }
+    // Filter out the host when checking if "all players" are finished
+    const students = room.players.filter(p => p.name !== room.host);
+    const allFinished = students.length > 0 && students.every(p => p.finishedAt !== null);
+    
+    if (allFinished) room.status = 'finished';
 
-    await redis.set(`room:${code}`, JSON.stringify(room), { ex: 14400 });
+    await redis.set(`room:${code}`, room, { ex: 14400 });
 
     return res.status(200).json({
       success: true,
@@ -60,10 +67,10 @@ export default async function handler(req, res) {
       correctAnswer: question.correct,
       explanation: question.explanation,
       playerScore: player.score,
+      currentStreak,
       allFinished
     });
   } catch (err) {
-    console.error(err);
-    return res.status(500).json({ error: 'Failed to submit answer' });
+    return res.status(500).json({ error: 'Failed to submit' });
   }
 }
