@@ -55,6 +55,12 @@ function gameReducer(state, action) {
 export function GameProvider({ children }) {
   const [state, dispatch] = useReducer(gameReducer, initialState);
   const pollingRef = useRef(null);
+  
+  // Ref to always track latest phase without stale closures in setInterval
+  const phaseRef = useRef(state.gamePhase);
+  useEffect(() => {
+    phaseRef.current = state.gamePhase;
+  }, [state.gamePhase]);
 
   const startPolling = useCallback((roomCode) => {
     if (pollingRef.current) clearInterval(pollingRef.current);
@@ -65,20 +71,22 @@ export function GameProvider({ children }) {
         if (data.success) {
           dispatch({ type: 'UPDATE_ROOM', payload: data.room });
 
-          // Auto transition if host started game or game finished
-          if (data.room.status === 'playing' && state.gamePhase === 'lobby') {
+          // Auto-transition when host starts
+          if (data.room.status === 'playing' && phaseRef.current === 'lobby') {
             dispatch({ type: 'GAME_STARTED' });
           }
+          
+          // Auto-transition when all players finish
           if (data.room.status === 'finished') {
             dispatch({ type: 'GAME_FINISHED' });
-            clearInterval(pollingRef.current);
+            if (pollingRef.current) clearInterval(pollingRef.current);
           }
         }
       } catch (err) {
         console.error('Polling error:', err);
       }
-    }, 2000);
-  }, [state.gamePhase]);
+    }, 1500); // Check every 1.5 seconds for snappy updates
+  }, []);
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -180,7 +188,8 @@ export function GameProvider({ children }) {
       startGame,
       submitAnswer,
       resetGame,
-      clearError
+      clearError,
+      dispatch
     }}>
       {children}
     </GameContext.Provider>
