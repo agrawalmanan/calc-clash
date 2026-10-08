@@ -3,10 +3,9 @@ import { useGame } from '../context/GameContext';
 import Timer from './Timer';
 
 export default function Battle() {
-  const { room, currentQuestion, submitAnswer, score, dispatch, isHost } = useGame();
+  const { room, currentQuestion, submitAnswer, score, dispatch, playerName } = useGame();
   const [selected, setSelected] = useState(null);
   const [result, setResult] = useState(null);
-  const [startTime, setStartTime] = useState(Date.now());
 
   const questions = room?.questions || [];
   const isFinished = currentQuestion >= questions.length && questions.length > 0;
@@ -14,46 +13,67 @@ export default function Battle() {
   useEffect(() => {
     setSelected(null);
     setResult(null);
-    setStartTime(Date.now());
   }, [currentQuestion]);
 
   const handleSelect = useCallback(async (idx) => {
     if (result) return;
     setSelected(idx);
+    const res = await submitAnswer(currentQuestion, idx, 10); // Standardized time for simplicity
+    if (res) setResult(res);
+  }, [result, submitAnswer, currentQuestion]);
 
-    const timeTaken = Math.max(1, Math.floor((Date.now() - startTime) / 1000));
-    const res = await submitAnswer(currentQuestion, idx, timeTaken);
-    if (res) {
-      setResult(res);
-    }
-  }, [result, startTime, submitAnswer, currentQuestion]);
-
-  // 🎉 Show "Finished" screen when user completes all questions instead of blank page
+  // 🎉 DETAILED RESULTS SCREEN
   if (isFinished) {
+    const me = room?.players?.find(p => p.name === playerName);
+    const myAnswers = me?.answers || [];
+
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4">
-        <div className="bg-slate-800 p-8 rounded-2xl border border-slate-700 text-center max-w-md w-full space-y-4 animate-fadeIn shadow-2xl">
-          <div className="text-6xl mb-2">🎉</div>
-          <h2 className="text-2xl font-bold text-slate-100">Battle Finished!</h2>
-          <p className="text-slate-400 text-sm">Great job completing all calculus questions!</p>
-          
-          <div className="bg-slate-900 p-5 rounded-xl border border-slate-800">
-            <span className="text-xs text-slate-400 block mb-1">YOUR FINAL SCORE</span>
-            <span className="text-4xl font-black text-indigo-400">{score} pts</span>
+      <div className="min-h-screen p-4 max-w-2xl mx-auto pt-10 pb-24">
+        <div className="text-center mb-8">
+          <div className="text-6xl mb-4">🏆</div>
+          <h2 className="text-3xl font-black text-slate-800">Battle Complete!</h2>
+          <div className="inline-block bg-brand-purple text-white px-6 py-2 rounded-full font-black text-xl mt-3 shadow-md">
+            Score: {score} pts
           </div>
-
-          <p className="text-xs text-slate-500 animate-pulse">
-            ⏳ Waiting for all participants to finish...
-          </p>
-
-          {/* Fallback button if host wants to jump straight to leaderboard */}
-          <button
-            onClick={() => dispatch({ type: 'GAME_FINISHED' })}
-            className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 rounded-xl font-bold text-sm transition-all text-white"
-          >
-            🏆 View Leaderboard
-          </button>
         </div>
+
+        <h3 className="font-black text-slate-700 text-xl mb-4">Your Results:</h3>
+        <div className="space-y-4">
+          {questions.map((q, idx) => {
+            const ans = myAnswers[idx];
+            const isRight = ans?.correct;
+            
+            return (
+              <div key={idx} className={`card-chunky p-5 border-l-8 ${isRight ? 'border-l-green-500' : 'border-l-red-500'}`}>
+                <p className="font-bold text-slate-800 mb-2">Q{idx + 1}: {q.question}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mt-3">
+                  <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                    <span className="text-slate-400 block text-xs font-bold mb-1">YOUR ANSWER</span>
+                    <span className={`font-bold ${isRight ? 'text-green-600' : 'text-red-600'}`}>
+                      {ans?.selected >= 0 ? q.options[ans.selected] : 'Skipped / Timeout'}
+                    </span>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-lg border border-green-100">
+                    <span className="text-green-600/70 block text-xs font-bold mb-1">CORRECT ANSWER</span>
+                    <span className="font-bold text-green-700">{q.options[q.correct]}</span>
+                  </div>
+                </div>
+                {!isRight && q.explanation && (
+                  <div className="mt-3 text-sm text-slate-600 bg-blue-50 p-3 rounded-lg border border-blue-100">
+                    💡 <strong>Explanation:</strong> {q.explanation}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => dispatch({ type: 'GAME_FINISHED' })}
+          className="btn-chunky btn-primary w-full py-4 text-xl font-black rounded-2xl mt-8 fixed bottom-4 max-w-2xl"
+        >
+          View Global Leaderboard 🌍
+        </button>
       </div>
     );
   }
@@ -62,35 +82,45 @@ export default function Battle() {
   if (!question) return null;
 
   return (
-    <div className="min-h-screen flex flex-col p-4 max-w-xl mx-auto justify-center">
-      {/* Top Info Bar */}
-      <div className="flex justify-between items-center mb-4">
-        <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-300 border border-slate-700">
-          Q{currentQuestion + 1} of {questions.length} • {question.topic}
+    <div className="min-h-screen flex flex-col p-4 max-w-xl mx-auto pt-10">
+      {/* Top Bar */}
+      <div className="flex justify-between items-center mb-6 bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+        <span className="font-black text-slate-400">
+          Q{currentQuestion + 1} <span className="text-slate-300">/ {questions.length}</span>
         </span>
-        <span className="text-sm font-bold text-indigo-400">Score: {score}</span>
+        <span className="font-black text-brand-purple bg-brand-purple/10 px-4 py-1 rounded-full">
+          ⭐ {score}
+        </span>
       </div>
 
-      {/* Timer */}
-      <div className="mb-6">
-        <Timer duration={question.timeLimit || 30} onTimeUp={() => handleSelect(-1)} isActive={!result} key={currentQuestion} />
-      </div>
+      <Timer 
+        duration={question.timeLimit || 30} 
+        onTimeUp={() => handleSelect(-1)} 
+        isActive={!result} 
+        questionIndex={currentQuestion} 
+      />
 
-      {/* Question Card */}
-      <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 mb-4 animate-fadeIn">
-        <h2 className="text-xl md:text-2xl font-bold leading-relaxed text-slate-100">
+      <div className="card-chunky p-8 my-6 bg-white">
+        <h2 className="text-2xl font-bold text-slate-800 leading-snug text-center">
           {question.question}
         </h2>
       </div>
 
-      {/* Options */}
-      <div className="space-y-3 mb-4">
+      <div className="grid grid-cols-1 gap-3">
         {question.options?.map((opt, idx) => {
-          let style = "bg-slate-800 border-slate-700 hover:border-indigo-500";
+          let stateClass = "btn-secondary";
+          let icon = "";
+
           if (result) {
-            if (idx === result.correctAnswer) style = "bg-emerald-900/40 border-emerald-500 text-emerald-200";
-            else if (idx === selected) style = "bg-rose-900/40 border-rose-500 text-rose-200 animate-shake";
-            else style = "bg-slate-900/40 border-slate-800 opacity-50";
+            if (idx === result.correctAnswer) {
+              stateClass = "!bg-green-500 !text-white !border-green-600 !shadow-[0_6px_0_0_#16a34a]";
+              icon = "✓";
+            } else if (idx === selected) {
+              stateClass = "!bg-red-500 !text-white !border-red-600 !shadow-[0_6px_0_0_#dc2626] animate-shake";
+              icon = "✗";
+            } else {
+              stateClass = "opacity-40";
+            }
           }
 
           return (
@@ -98,24 +128,14 @@ export default function Battle() {
               key={idx}
               onClick={() => handleSelect(idx)}
               disabled={!!result}
-              className={`w-full p-4 text-left rounded-xl border font-medium transition-all flex items-center justify-between ${style}`}
+              className={`btn-chunky w-full p-5 rounded-2xl font-bold text-lg text-left flex justify-between items-center ${stateClass}`}
             >
               <span>{opt}</span>
-              <span className="text-xs opacity-50 font-mono">[{['A','B','C','D'][idx]}]</span>
+              {icon && <span className="font-black">{icon}</span>}
             </button>
           );
         })}
       </div>
-
-      {/* Answer Explanation Banner */}
-      {result && (
-        <div className={`p-4 rounded-xl text-sm animate-fadeIn ${result.isCorrect ? 'bg-emerald-950/60 border border-emerald-600 text-emerald-200' : 'bg-rose-950/60 border border-rose-600 text-rose-200'}`}>
-          <div className="font-bold mb-1">
-            {result.isCorrect ? `🎯 Correct! +${result.pointsEarned} pts` : '❌ Incorrect!'}
-          </div>
-          <p className="text-xs opacity-90">{result.explanation}</p>
-        </div>
-      )}
     </div>
   );
 }

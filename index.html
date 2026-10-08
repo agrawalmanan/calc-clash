@@ -1,27 +1,25 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CalcClash ⚔️ | Real-Time Calculus Arena</title>
-    <!-- Tailwind CSS CDN (Guarantees styles load instantly) -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              'bg-dark': '#0f172a',
-              'bg-card': '#1e293b',
-            }
-          }
-        }
-      }
-    </script>
-  </head>
-  <body class="bg-slate-900 text-slate-100 min-h-screen">
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
-</html>
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  .btn-chunky {
+    @apply relative transition-all active:translate-y-1 active:shadow-none select-none;
+  }
+  .btn-primary {
+    @apply bg-brand-purple text-white shadow-[0_6px_0_0_#553C9A] hover:bg-[#7a55d9];
+  }
+  .btn-secondary {
+    @apply bg-white text-slate-700 shadow-[0_6px_0_0_#CBD5E0] hover:bg-slate-50 border-2 border-slate-200;
+  }
+  .card-chunky {
+    @apply bg-white border-2 border-slate-200 shadow-[0_8px_0_0_#E2E8F0] rounded-3xl;
+  }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-15px) rotate(5deg); }
+}
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-float-delayed { animation: float 6s ease-in-out infinite; animation-delay: 3s; }
