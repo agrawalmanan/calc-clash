@@ -3,6 +3,7 @@ import { useGame } from '../context/GameContext';
 import { api } from '../utils/api';
 import { playSound } from '../utils/sounds';
 import OverallTimer from './Timer';
+import { LeaderboardCard } from './ui/LeaderboardCard';
 
 export default function Battle() {
   const {
@@ -21,9 +22,7 @@ export default function Battle() {
   const [result, setResult] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
-  
-  // MUST be inside the component!
-  const [numInput, setNumInput] = useState("");
+  const [numInput, setNumInput] = useState('');
 
   const questions = room?.questions || [];
   const isFinished = currentQuestion >= questions.length && questions.length > 0;
@@ -35,42 +34,48 @@ export default function Battle() {
     const fetchLb = async () => {
       try {
         const data = await api.getLeaderboard(room.code);
-        if (data.success) setLeaderboard(data.leaderboard);
+        if (data.success) setLeaderboard(data.leaderboard || []);
       } catch {}
     };
+
     fetchLb();
     const t = setInterval(fetchLb, 2500);
     return () => clearInterval(t);
   }, [isFinished, room?.code]);
 
-  const handleSelect = useCallback(async (idx) => {
-    if (result || isSubmitting) return;
-    setIsSubmitting(true);
-    setSelected(idx);
+  // Play victory fanfare once when results open
+  useEffect(() => {
+    if (isFinished) playSound('victory');
+  }, [isFinished]);
 
-    // Capture index NOW so it can't drift
-    const qIndex = currentQuestion;
+  const handleSelect = useCallback(
+    async (idx) => {
+      if (result || isSubmitting) return;
+      setIsSubmitting(true);
+      setSelected(idx);
 
-    const res = await submitAnswer(qIndex, idx);
+      const qIndex = currentQuestion;
+      const res = await submitAnswer(qIndex, idx);
 
-    if (res?.success) {
-      setResult(res);
-      if (res.isCorrect) playSound('correct');
-      else playSound('wrong');
+      if (res?.success) {
+        setResult(res);
+        if (res.isCorrect) playSound('correct');
+        else playSound('wrong');
 
-      // Show feedback, THEN advance
-      setTimeout(() => {
-        setResult(null);
-        setSelected(null);
-        setNumInput(""); // Clear numeric input for next question
+        setTimeout(() => {
+          setResult(null);
+          setSelected(null);
+          setNumInput('');
+          setIsSubmitting(false);
+          nextQuestion();
+        }, 1400);
+      } else {
         setIsSubmitting(false);
-        nextQuestion(); 
-      }, 1400);
-    } else {
-      setIsSubmitting(false);
-      setSelected(null);
-    }
-  }, [result, isSubmitting, currentQuestion, submitAnswer, nextQuestion]);
+        setSelected(null);
+      }
+    },
+    [result, isSubmitting, currentQuestion, submitAnswer, nextQuestion]
+  );
 
   const handleTimeUp = useCallback(() => {
     dispatch({ type: 'GAME_FINISHED' });
@@ -78,6 +83,29 @@ export default function Battle() {
 
   // ===================== REVIEW + LEADERBOARD =====================
   if (isFinished) {
+    const podiumRankings = leaderboard.slice(0, 3).map((p, idx) => ({
+      userId: p.name,
+      userName: p.name,
+      rank: idx + 1,
+      value: p.score
+    }));
+
+    const rankings = leaderboard.map((p, idx) => {
+      let byline = '1st Year BTech';
+      if (p.score >= 500) byline = '🔥 Calculus Master';
+      else if (p.score >= 300) byline = '⚡ Limit Slayer';
+      else if (p.score >= 100) byline = '📐 Derivative Novice';
+
+      return {
+        userId: p.name,
+        userName: p.name,
+        rank: idx + 1,
+        byline,
+        value: p.score,
+        displayed: true
+      };
+    });
+
     return (
       <div className="min-h-screen p-4 max-w-7xl mx-auto pt-8 pb-10">
         <div className="text-center mb-10 animate-fadeIn">
@@ -89,12 +117,12 @@ export default function Battle() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* LEFT: Answer Review from LOCAL log */}
+          {/* LEFT: Answer Review */}
           <div className="lg:col-span-2 space-y-4">
             <h3 className="font-black text-slate-600 text-xl mb-2">📋 Your Answer Review</h3>
 
             {questions.map((q, idx) => {
-              const ans = myAnswerLog.find(a => a.questionIndex === idx);
+              const ans = myAnswerLog.find((a) => a.questionIndex === idx);
               const isRight = ans?.correct;
               const selectedVal = ans?.selected;
               const isNum = q.type === 'NUM';
@@ -103,7 +131,11 @@ export default function Battle() {
                 <div
                   key={idx}
                   className={`card-chunky p-5 border-l-[6px] ${
-                    !ans ? 'border-l-slate-300' : isRight ? 'border-l-green-500' : 'border-l-red-400'
+                    !ans
+                      ? 'border-l-slate-300'
+                      : isRight
+                      ? 'border-l-green-500'
+                      : 'border-l-red-400'
                   }`}
                 >
                   <p className="font-bold text-slate-800 mb-3 text-[15px] leading-snug">
@@ -111,25 +143,32 @@ export default function Battle() {
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                    <div className={`p-3 rounded-xl border ${
-                      !ans ? 'bg-slate-50 border-slate-200'
-                        : isRight ? 'bg-green-50 border-green-200'
-                        : 'bg-red-50 border-red-200'
-                    }`}>
+                    <div
+                      className={`p-3 rounded-xl border ${
+                        !ans
+                          ? 'bg-slate-50 border-slate-200'
+                          : isRight
+                          ? 'bg-green-50 border-green-200'
+                          : 'bg-red-50 border-red-200'
+                      }`}
+                    >
                       <span className="text-[10px] font-black uppercase tracking-wide opacity-60 block mb-1">
                         Your Answer
                       </span>
-                      <span className={`font-bold ${
-                        !ans ? 'text-slate-400'
-                          : isRight ? 'text-green-700'
-                          : 'text-red-600'
-                      }`}>
+                      <span
+                        className={`font-bold ${
+                          !ans
+                            ? 'text-slate-400'
+                            : isRight
+                            ? 'text-green-700'
+                            : 'text-red-600'
+                        }`}
+                      >
                         {!ans
                           ? '⏱ Skipped'
-                          : isNum 
-                            ? selectedVal // Show the typed number
-                            : q.options?.[selectedVal] // Show the multiple choice text
-                        }
+                          : isNum
+                          ? selectedVal
+                          : q.options?.[selectedVal]}
                         {ans && (isRight ? ' ✓' : ' ✗')}
                       </span>
                     </div>
@@ -139,7 +178,7 @@ export default function Battle() {
                         Correct Answer
                       </span>
                       <span className="font-bold text-green-700">
-                        {isNum ? q.correct : (q.options?.[q.correct] ?? '—')}
+                        {isNum ? q.correct : q.options?.[q.correct] ?? '—'}
                       </span>
                     </div>
                   </div>
@@ -154,51 +193,22 @@ export default function Battle() {
             })}
           </div>
 
-          {/* RIGHT: Live Leaderboard */}
+          {/* RIGHT: Trophy LeaderboardCard */}
           <div className="lg:col-span-1">
             <div className="sticky top-8 space-y-4">
-              <h3 className="font-black text-slate-600 text-xl mb-2 flex items-center gap-2">
-                🌍 Live Leaderboard
-                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              </h3>
+              <LeaderboardCard
+                title="Live Leaderboard"
+                currentUserId={playerName}
+                podiumRankings={podiumRankings}
+                rankings={rankings}
+              />
 
-              <div className="card-chunky p-4 bg-white/80 backdrop-blur-sm">
-                <div className="space-y-2">
-                  {leaderboard.length === 0 && (
-                    <p className="text-sm text-slate-400 text-center py-4">Loading scores...</p>
-                  )}
-                  {leaderboard.map((p, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex items-center justify-between p-3 rounded-xl border ${
-                        p.name === playerName
-                          ? 'bg-brand-purple/10 border-brand-purple'
-                          : 'bg-slate-50 border-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-xl font-bold w-6 text-center">
-                          {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
-                        </span>
-                        <div className="font-bold text-sm text-slate-700">
-                          {p.name}{' '}
-                          {p.name === playerName && (
-                            <span className="text-xs text-brand-purple">(You)</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="font-black text-brand-purple">{p.score}</div>
-                    </div>
-                  ))}
-                </div>
-
-                <button
-                  onClick={resetGame}
-                  className="btn-chunky btn-secondary w-full py-3 text-sm font-black rounded-xl mt-6"
-                >
-                  Exit to Menu 🏠
-                </button>
-              </div>
+              <button
+                onClick={resetGame}
+                className="btn-chunky btn-secondary w-full py-3 text-sm font-black rounded-xl"
+              >
+                Exit to Menu 🏠
+              </button>
             </div>
           </div>
         </div>
@@ -223,124 +233,3 @@ export default function Battle() {
     <div className="min-h-screen flex flex-col p-4 max-w-xl mx-auto pt-6">
       {/* Top bar */}
       <div
-        className={`flex justify-between items-center mb-4 px-5 py-3 rounded-2xl shadow-sm border ${
-          streakOnFire
-            ? 'bg-orange-50 border-orange-400 animate-fireGlow'
-            : 'bg-white border-slate-100'
-        }`}
-      >
-        <span className="font-black text-slate-400 text-sm">
-          Q{currentQuestion + 1} <span className="text-slate-300">/ {questions.length}</span>
-        </span>
-        <div className="flex items-center gap-3">
-          {streakOnFire && (
-            <span className="font-black text-orange-600 animate-bounce text-sm">
-              🔥 STREAK x1.5!
-            </span>
-          )}
-          <span className="font-black text-brand-purple bg-purple-50 px-4 py-1 rounded-full text-sm">
-            ⭐ {score}
-          </span>
-        </div>
-      </div>
-
-      <OverallTimer
-        totalTimeLimit={room?.totalTimeLimit || questions.length * 45}
-        onTimeUp={handleTimeUp}
-      />
-
-      {/* 🖼️ Optional Image Rendering */}
-      {question.imageUrl && (
-        <div className="mb-4 rounded-2xl overflow-hidden border-4 border-slate-200 shadow-sm bg-white">
-          <img 
-            src={question.imageUrl} 
-            alt="Math Diagram" 
-            className="w-full h-auto object-contain max-h-64 mx-auto"
-            onError={(e) => e.target.style.display = 'none'} // Hide if image link is broken
-          />
-        </div>
-      )}
-
-      {/* Question Text */}
-      <div className="card-chunky p-6 mb-5 animate-fadeIn">
-        <div className="text-xs font-black text-brand-purple uppercase tracking-wider mb-2 text-center">
-          {question.topic || 'Calculus'} · {question.type === 'NUM' ? 'Type the Number' : 'Select Option'}
-        </div>
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 leading-snug text-center">
-          {question.question}
-        </h2>
-      </div>
-
-      {/* 🔠 Options (Dynamically renders NUM vs MCQ/TF) */}
-      {question.type === 'NUM' ? (
-        <div className="flex flex-col gap-3 animate-fadeIn">
-          <input
-            type="number"
-            step="any"
-            value={numInput}
-            onChange={(e) => setNumInput(e.target.value)}
-            disabled={!!result || isSubmitting}
-            placeholder="Type your answer here..."
-            className="w-full p-5 rounded-2xl border-4 border-slate-100 bg-white text-slate-900 text-2xl font-black text-center placeholder:text-slate-300 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/20 outline-none transition-all disabled:opacity-50 shadow-inner"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && numInput.trim() !== '') handleSelect(numInput);
-            }}
-          />
-          <button
-            onClick={() => handleSelect(numInput)}
-            disabled={!!result || isSubmitting || numInput.trim() === ""}
-            className="btn-chunky btn-primary w-full py-4 text-xl font-black rounded-2xl"
-          >
-            Submit Answer
-          </button>
-
-          {/* Feedback overlay for Numeric input */}
-          {result && (
-            <div className={`p-4 rounded-xl text-center font-black mt-2 ${result.isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700 animate-shake'}`}>
-              {result.isCorrect ? '✓ CORRECT!' : `✗ WRONG! (Answer was ${result.correctAnswer})`}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className={`grid gap-3 ${question.options?.filter(o => o).length > 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
-          {(question.options || []).filter(opt => opt && opt.trim() !== "").map((opt, idx) => {
-            let extra = 'btn-secondary';
-            let badge = ['A', 'B', 'C', 'D'][idx];
-
-            if (result) {
-              if (idx === result.correctAnswer) {
-                extra = '!bg-green-500 !text-white !border-green-600 !shadow-[0_6px_0_0_#16a34a]';
-                badge = '✓';
-              } else if (idx === selected) {
-                extra = '!bg-red-500 !text-white !border-red-600 !shadow-[0_6px_0_0_#dc2626] animate-shake';
-                badge = '✗';
-              } else {
-                extra = 'opacity-40';
-              }
-            }
-
-            return (
-              <button
-                key={`${currentQuestion}-${idx}`}
-                onClick={() => handleSelect(idx)}
-                disabled={!!result || isSubmitting}
-                className={`btn-chunky w-full p-4 sm:p-5 rounded-2xl font-bold text-left flex items-center gap-4 ${extra}`}
-              >
-                <span
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${
-                    result && (idx === result.correctAnswer || idx === selected)
-                      ? 'bg-white/20'
-                      : 'bg-slate-100 text-slate-500'
-                  }`}
-                >
-                  {badge}
-                </span>
-                <span className="text-base sm:text-lg">{opt}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
