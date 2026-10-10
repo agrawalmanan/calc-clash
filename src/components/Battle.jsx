@@ -21,6 +21,9 @@ export default function Battle() {
   const [result, setResult] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [leaderboard, setLeaderboard] = useState([]);
+  
+  // MUST be inside the component!
+  const [numInput, setNumInput] = useState("");
 
   const questions = room?.questions || [];
   const isFinished = currentQuestion >= questions.length && questions.length > 0;
@@ -59,8 +62,9 @@ export default function Battle() {
       setTimeout(() => {
         setResult(null);
         setSelected(null);
+        setNumInput(""); // Clear numeric input for next question
         setIsSubmitting(false);
-        nextQuestion(); // ← advances only after feedback
+        nextQuestion(); 
       }, 1400);
     } else {
       setIsSubmitting(false);
@@ -92,8 +96,8 @@ export default function Battle() {
             {questions.map((q, idx) => {
               const ans = myAnswerLog.find(a => a.questionIndex === idx);
               const isRight = ans?.correct;
-              const selectedIdx = ans?.selected;
-              const correctIdx = ans?.correctAnswer ?? q.correct;
+              const selectedVal = ans?.selected;
+              const isNum = q.type === 'NUM';
 
               return (
                 <div
@@ -122,9 +126,10 @@ export default function Battle() {
                       }`}>
                         {!ans
                           ? '⏱ Skipped'
-                          : selectedIdx >= 0
-                            ? q.options?.[selectedIdx]
-                            : '⏱ Skipped'}
+                          : isNum 
+                            ? selectedVal // Show the typed number
+                            : q.options?.[selectedVal] // Show the multiple choice text
+                        }
                         {ans && (isRight ? ' ✓' : ' ✗')}
                       </span>
                     </div>
@@ -134,7 +139,7 @@ export default function Battle() {
                         Correct Answer
                       </span>
                       <span className="font-bold text-green-700">
-                        {q.options?.[correctIdx] ?? q.options?.[q.correct] ?? '—'}
+                        {isNum ? q.correct : (q.options?.[q.correct] ?? '—')}
                       </span>
                     </div>
                   </div>
@@ -244,55 +249,96 @@ export default function Battle() {
         onTimeUp={handleTimeUp}
       />
 
-      {/* Question — locked to currentQuestion while feedback shows */}
+      {/* 🖼️ Optional Image Rendering */}
+      {question.imageUrl && (
+        <div className="mb-4 rounded-2xl overflow-hidden border-4 border-slate-200 shadow-sm bg-white">
+          <img 
+            src={question.imageUrl} 
+            alt="Math Diagram" 
+            className="w-full h-auto object-contain max-h-64 mx-auto"
+            onError={(e) => e.target.style.display = 'none'} // Hide if image link is broken
+          />
+        </div>
+      )}
+
+      {/* Question Text */}
       <div className="card-chunky p-6 mb-5 animate-fadeIn">
         <div className="text-xs font-black text-brand-purple uppercase tracking-wider mb-2 text-center">
-          {question.topic || 'Calculus'} · 100 pts
+          {question.topic || 'Calculus'} · {question.type === 'NUM' ? 'Type the Number' : 'Select Option'}
         </div>
         <h2 className="text-xl sm:text-2xl font-bold text-slate-800 leading-snug text-center">
           {question.question}
         </h2>
       </div>
 
-      {/* Options */}
-      <div className="grid grid-cols-1 gap-3">
-        {(question.options || []).map((opt, idx) => {
-          let extra = 'btn-secondary';
-          let badge = ['A', 'B', 'C', 'D'][idx];
+      {/* 🔠 Options (Dynamically renders NUM vs MCQ/TF) */}
+      {question.type === 'NUM' ? (
+        <div className="flex flex-col gap-3 animate-fadeIn">
+          <input 
+            type="number" 
+            step="any"
+            value={numInput}
+            onChange={(e) => setNumInput(e.target.value)}
+            disabled={!!result || isSubmitting}
+            placeholder="Type your answer here..."
+            className="w-full p-5 rounded-2xl border-4 border-slate-200 text-2xl font-black text-center focus:border-brand-purple outline-none transition-all disabled:opacity-50"
+            onKeyDown={(e) => { if (e.key === 'Enter' && numInput.trim() !== '') handleSelect(numInput) }}
+          />
+          <button
+            onClick={() => handleSelect(numInput)}
+            disabled={!!result || isSubmitting || numInput.trim() === ""}
+            className="btn-chunky btn-primary w-full py-4 text-xl font-black rounded-2xl"
+          >
+            Submit Answer
+          </button>
 
-          if (result) {
-            if (idx === result.correctAnswer) {
-              extra = '!bg-green-500 !text-white !border-green-600 !shadow-[0_6px_0_0_#16a34a]';
-              badge = '✓';
-            } else if (idx === selected) {
-              extra = '!bg-red-500 !text-white !border-red-600 !shadow-[0_6px_0_0_#dc2626] animate-shake';
-              badge = '✗';
-            } else {
-              extra = 'opacity-40';
+          {/* Feedback overlay for Numeric input */}
+          {result && (
+            <div className={`p-4 rounded-xl text-center font-black mt-2 ${result.isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700 animate-shake'}`}>
+              {result.isCorrect ? '✓ CORRECT!' : `✗ WRONG! (Answer was ${result.correctAnswer})`}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className={`grid gap-3 ${question.options?.filter(o => o).length > 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
+          {(question.options || []).filter(opt => opt && opt.trim() !== "").map((opt, idx) => {
+            let extra = 'btn-secondary';
+            let badge = ['A', 'B', 'C', 'D'][idx];
+
+            if (result) {
+              if (idx === result.correctAnswer) {
+                extra = '!bg-green-500 !text-white !border-green-600 !shadow-[0_6px_0_0_#16a34a]';
+                badge = '✓';
+              } else if (idx === selected) {
+                extra = '!bg-red-500 !text-white !border-red-600 !shadow-[0_6px_0_0_#dc2626] animate-shake';
+                badge = '✗';
+              } else {
+                extra = 'opacity-40';
+              }
             }
-          }
 
-          return (
-            <button
-              key={`${currentQuestion}-${idx}`}
-              onClick={() => handleSelect(idx)}
-              disabled={!!result || isSubmitting}
-              className={`btn-chunky w-full p-4 sm:p-5 rounded-2xl font-bold text-left flex items-center gap-4 ${extra}`}
-            >
-              <span
-                className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${
-                  result && (idx === result.correctAnswer || idx === selected)
-                    ? 'bg-white/20'
-                    : 'bg-slate-100 text-slate-500'
-                }`}
+            return (
+              <button
+                key={`${currentQuestion}-${idx}`}
+                onClick={() => handleSelect(idx)}
+                disabled={!!result || isSubmitting}
+                className={`btn-chunky w-full p-4 sm:p-5 rounded-2xl font-bold text-left flex items-center gap-4 ${extra}`}
               >
-                {badge}
-              </span>
-              <span className="text-base sm:text-lg">{opt}</span>
-            </button>
-          );
-        })}
-      </div>
+                <span
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${
+                    result && (idx === result.correctAnswer || idx === selected)
+                      ? 'bg-white/20'
+                      : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {badge}
+                </span>
+                <span className="text-base sm:text-lg">{opt}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

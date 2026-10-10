@@ -24,7 +24,17 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Already answered' });
     }
 
-    const isCorrect = answerIndex === question.correct;
+    // 🔥 NEW: Check answer type (Numeric vs MCQ)
+    let isCorrect = false;
+    if (question.type === 'NUM') {
+      // For numeric, answerIndex is the string the user typed
+      const studentVal = parseFloat(answerIndex);
+      // Allow 0.01 margin of error for decimals
+      isCorrect = Math.abs(studentVal - question.correct) < 0.01;
+    } else {
+      // For MCQ / TF
+      isCorrect = parseInt(answerIndex) === question.correct;
+    }
 
     // 🔥 STREAK CALCULATION
     let currentStreak = 0;

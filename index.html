@@ -16,21 +16,10 @@
     <script>
       tailwind.config = {
         theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Nunito', 'sans-serif'],
-            },
-            colors: {
-              brand: {
-                purple: '#6B46C1',
-                blue: '#4299E1',
-                pink: '#ED64A6',
-                yellow: '#ECC94B',
-              },
-            },
-          },
+          extend: { /* your existing theme colors */ }
         },
-      };
+        plugins: [daisyui],
+      }
     </script>
   </head>
 
