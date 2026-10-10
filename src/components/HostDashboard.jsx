@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useGame } from '../context/GameContext';
 import { api } from '../utils/api';
 import OverallTimer from './Timer';
-import { LeaderboardCard } from './ui/LeaderboardCard';
+import { LeaderboardCard } from './LeaderboardCard';
 
 function getAvatar(name) {
   return `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}&backgroundColor=c0aede,ffdfbf,b6e3f4,d1d4f9`;

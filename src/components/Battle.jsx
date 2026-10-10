@@ -3,7 +3,7 @@ import { useGame } from '../context/GameContext';
 import { api } from '../utils/api';
 import { playSound } from '../utils/sounds';
 import OverallTimer from './Timer';
-import { LeaderboardCard } from './ui/LeaderboardCard';
+import { LeaderboardCard } from './LeaderboardCard';
 
 export default function Battle() {
   const {
