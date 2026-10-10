@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
 
 // 🛑 PASTE YOUR PUBLISHED GOOGLE SHEET CSV URL HERE (required)
-export const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/YOUR_ID/pub?output=csv";
+export const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT534148vnBFD7iXB-7fBebu3hvCV-QGbU63AGkc7qibsJgfMI1ZqcyxksTlQNq9ioFHsgs3RpCBzdt/pub?output=csv";
 
 export async function fetchQuestionsFromSheet(sheetUrl = GOOGLE_SHEET_CSV_URL) {
   const targetUrl = (sheetUrl && sheetUrl.trim() !== "") ? sheetUrl.trim() : GOOGLE_SHEET_CSV_URL;
