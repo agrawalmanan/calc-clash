@@ -274,15 +274,17 @@ export default function Battle() {
       {/* 🔠 Options (Dynamically renders NUM vs MCQ/TF) */}
       {question.type === 'NUM' ? (
         <div className="flex flex-col gap-3 animate-fadeIn">
-          <input 
-            type="number" 
+          <input
+            type="number"
             step="any"
             value={numInput}
             onChange={(e) => setNumInput(e.target.value)}
             disabled={!!result || isSubmitting}
             placeholder="Type your answer here..."
-            className="w-full p-5 rounded-2xl border-4 border-slate-200 text-2xl font-black text-center focus:border-brand-purple outline-none transition-all disabled:opacity-50"
-            onKeyDown={(e) => { if (e.key === 'Enter' && numInput.trim() !== '') handleSelect(numInput) }}
+            className="w-full p-5 rounded-2xl border-4 border-slate-100 bg-white text-slate-900 text-2xl font-black text-center placeholder:text-slate-300 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/20 outline-none transition-all disabled:opacity-50 shadow-inner"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && numInput.trim() !== '') handleSelect(numInput);
+            }}
           />
           <button
             onClick={() => handleSelect(numInput)}
