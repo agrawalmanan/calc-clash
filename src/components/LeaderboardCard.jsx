@@ -2,11 +2,18 @@ import React from 'react';
 
 function getAvatar(name, customAvatar) {
   if (customAvatar) return customAvatar;
-  return `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}&backgroundColor=c0aede,ffdfbf,b6e3f4,d1d4f9`;
+  return `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffdfbf`;
+}
+
+function formatVal(val) {
+  if (typeof val !== 'number') return '0';
+  if (val >= 100000) return (val / 1000).toFixed(1) + 'k';
+  if (val >= 10000) return (val / 1000).toFixed(1) + 'k';
+  return val.toLocaleString();
 }
 
 export function LeaderboardCard({
-  title = "Live Leaderboard",
+  title = "Weekly Leaderboard",
   fromDate,
   toDate,
   currentUserId,
@@ -19,151 +26,160 @@ export function LeaderboardCard({
   const third = sortedPodium.find(p => p.rank === 3);
 
   return (
-    <div className="card-chunky p-6 bg-white border-2 border-slate-200 shadow-lg rounded-3xl overflow-hidden font-sans">
+    <div className="w-full bg-[#121214] text-zinc-100 rounded-3xl border border-zinc-800/80 p-6 shadow-2xl font-sans text-left">
+      
       {/* Header */}
-      <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
-        <div>
-          <h3 className="text-xl font-black text-slate-800 tracking-tight">{title}</h3>
-          {(fromDate || toDate) && (
-            <p className="text-xs font-bold text-slate-400 mt-0.5">
-              {fromDate && <span>{fromDate}</span>} {fromDate && toDate && '—'} {toDate && <span>{toDate}</span>}
-            </p>
-          )}
-        </div>
-        <span className="flex items-center gap-1.5 text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
-          <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-          LIVE
-        </span>
+      <div className="mb-8">
+        <h3 className="text-xl font-bold text-white tracking-tight">{title}</h3>
+        {(fromDate || toDate) && (
+          <p className="text-xs text-zinc-400 font-medium mt-1">
+            {fromDate && <span>{fromDate}</span>} {fromDate && toDate && '—'} {toDate && <span>{toDate}</span>}
+          </p>
+        )}
       </div>
 
-      {/* 🏆 PODIUM SECTION */}
+      {/* 🏆 PODIUM SECTION (Exact Trophy Dark Style) */}
       {podiumRankings.length > 0 && (
-        <div className="flex items-end justify-center gap-2 sm:gap-4 mb-8 pt-4 pb-2 border-b border-slate-100">
-          {/* 2nd Place */}
+        <div className="flex items-end justify-center gap-3 md:gap-6 mb-8 px-2 pb-4 border-b border-zinc-800/60">
+          
+          {/* 2nd Place (Silver) */}
           {second ? (
             <div className="flex flex-col items-center w-24 sm:w-28 animate-fadeIn">
-              <div className="relative mb-2">
-                <img
-                  src={getAvatar(second.userName, second.avatarUrl)}
-                  alt={second.userName}
-                  className="w-14 h-14 rounded-full border-4 border-slate-300 bg-slate-50 shadow-md object-cover"
-                />
-                <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-slate-700 text-white text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow">
-                  2
-                </span>
-              </div>
-              <div className="bg-slate-100/80 rounded-t-2xl w-full pt-3 pb-4 px-2 text-center border border-slate-200">
-                <p className="font-black text-xs text-slate-800 truncate">{second.userName}</p>
-                <p className="font-black text-brand-purple text-base mt-0.5">
-                  {second.value.toLocaleString()} <span className="text-[10px] font-bold text-slate-400">pts</span>
+              <div className="relative mb-2 flex flex-col items-center">
+                <div className="relative">
+                  <img
+                    src={getAvatar(second.userName, second.avatarUrl)}
+                    alt={second.userName}
+                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-zinc-400 bg-zinc-800 object-cover shadow-md"
+                  />
+                  <span className="absolute -top-1 -right-1 text-xs">👑</span>
+                </div>
+                <p className="font-semibold text-xs text-zinc-200 truncate w-full text-center mt-2 max-w-[90px]">
+                  {second.userName}
                 </p>
+                <p className="text-xs text-zinc-400 font-mono mt-0.5">
+                  {formatVal(second.value)}
+                </p>
+              </div>
+              {/* Pillar 2 */}
+              <div className="w-full h-20 bg-[#2d3139] border border-zinc-700/50 rounded-t-xl flex items-center justify-center font-bold text-zinc-300 text-lg shadow-inner">
+                2
               </div>
             </div>
           ) : <div className="w-24 sm:w-28" />}
 
-          {/* 1st Place */}
+          {/* 1st Place (Gold - Tallest) */}
           {first ? (
-            <div className="flex flex-col items-center w-28 sm:w-32 -mt-4 z-10 animate-fadeIn">
-              <div className="relative mb-2">
-                <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-2xl animate-bounce">👑</span>
-                <img
-                  src={getAvatar(first.userName, first.avatarUrl)}
-                  alt={first.userName}
-                  className="w-20 h-20 rounded-full border-4 border-amber-400 bg-amber-50 shadow-xl object-cover"
-                />
-                <span className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 bg-amber-500 text-white text-xs font-black w-7 h-7 rounded-full flex items-center justify-center border-2 border-white shadow">
-                  1
-                </span>
-              </div>
-              <div className="bg-gradient-to-b from-amber-50 to-amber-100/80 rounded-t-2xl w-full pt-4 pb-5 px-2 text-center border-2 border-amber-300 shadow-md">
-                <p className="font-black text-sm text-slate-900 truncate">{first.userName}</p>
-                <p className="font-black text-amber-600 text-lg mt-0.5">
-                  {first.value.toLocaleString()} <span className="text-[10px] font-bold text-amber-600/70">pts</span>
+            <div className="flex flex-col items-center w-28 sm:w-32 z-10 animate-fadeIn">
+              <div className="relative mb-2 flex flex-col items-center">
+                <div className="relative">
+                  <img
+                    src={getAvatar(first.userName, first.avatarUrl)}
+                    alt={first.userName}
+                    className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-amber-400 bg-zinc-800 object-cover shadow-xl"
+                  />
+                  <span className="absolute -top-2 -right-1 text-base animate-bounce">👑</span>
+                </div>
+                <p className="font-bold text-xs text-white truncate w-full text-center mt-2 max-w-[100px]">
+                  {first.userName}
                 </p>
+                <p className="text-xs text-amber-400 font-mono font-semibold mt-0.5">
+                  {formatVal(first.value)}
+                </p>
+              </div>
+              {/* Pillar 1 */}
+              <div className="w-full h-32 bg-[#b38827] border border-amber-500/50 rounded-t-xl flex items-center justify-center font-black text-amber-100 text-2xl shadow-lg">
+                1
               </div>
             </div>
           ) : <div className="w-28 sm:w-32" />}
 
-          {/* 3rd Place */}
+          {/* 3rd Place (Bronze) */}
           {third ? (
             <div className="flex flex-col items-center w-24 sm:w-28 animate-fadeIn">
-              <div className="relative mb-2">
-                <img
-                  src={getAvatar(third.userName, third.avatarUrl)}
-                  alt={third.userName}
-                  className="w-14 h-14 rounded-full border-4 border-amber-700/40 bg-orange-50 shadow-md object-cover"
-                />
-                <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-amber-700 text-white text-[11px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white shadow">
-                  3
-                </span>
-              </div>
-              <div className="bg-orange-50/80 rounded-t-2xl w-full pt-3 pb-4 px-2 text-center border border-orange-200">
-                <p className="font-black text-xs text-slate-800 truncate">{third.userName}</p>
-                <p className="font-black text-amber-700 text-base mt-0.5">
-                  {third.value.toLocaleString()} <span className="text-[10px] font-bold text-slate-400">pts</span>
+              <div className="relative mb-2 flex flex-col items-center">
+                <div className="relative">
+                  <img
+                    src={getAvatar(third.userName, third.avatarUrl)}
+                    alt={third.userName}
+                    className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border-2 border-amber-700 bg-zinc-800 object-cover shadow-md"
+                  />
+                  <span className="absolute -top-1 -right-1 text-xs">👑</span>
+                </div>
+                <p className="font-semibold text-xs text-zinc-200 truncate w-full text-center mt-2 max-w-[90px]">
+                  {third.userName}
                 </p>
+                <p className="text-xs text-zinc-400 font-mono mt-0.5">
+                  {formatVal(third.value)}
+                </p>
+              </div>
+              {/* Pillar 3 */}
+              <div className="w-full h-16 bg-[#633b1e] border border-amber-800/50 rounded-t-xl flex items-center justify-center font-bold text-amber-200 text-lg shadow-inner">
+                3
               </div>
             </div>
           ) : <div className="w-24 sm:w-28" />}
+
         </div>
       )}
 
       {/* 📋 RANKINGS LIST */}
-      <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+      <div className="space-y-2.5 max-h-[400px] overflow-y-auto pr-1">
         {rankings.length === 0 ? (
-          <p className="text-center text-slate-400 font-bold py-8 text-sm">
-            Waiting for players to score points...
+          <p className="text-center text-zinc-500 font-medium py-8 text-sm">
+            Waiting for battle results...
           </p>
         ) : (
           rankings.map((item) => {
             const isCurrentUser = item.userId === currentUserId || item.userName === currentUserId;
-            
+
             return (
               <div
                 key={item.userId || item.rank}
-                className={`flex items-center gap-3.5 p-3.5 rounded-2xl border transition-all ${
+                className={`flex items-center gap-3.5 px-4 py-3 rounded-2xl transition-all ${
                   isCurrentUser
-                    ? 'bg-brand-purple/10 border-brand-purple shadow-sm ring-2 ring-brand-purple/20'
-                    : item.rank <= 3
-                    ? 'bg-slate-50/90 border-slate-200/80'
-                    : 'bg-white border-slate-100 hover:border-slate-200'
+                    ? 'bg-zinc-800/90 border-2 border-white text-white shadow-md'
+                    : 'bg-zinc-900/60 border border-zinc-800/80 text-zinc-200 hover:bg-zinc-800/50'
                 }`}
               >
-                <div className="w-7 text-center font-black text-sm text-slate-400 flex-shrink-0">
-                  {item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : `#${item.rank}`}
+                {/* Rank # */}
+                <div className="w-6 text-center font-semibold text-sm text-zinc-400 flex items-center justify-center flex-shrink-0">
+                  {item.rank <= 3 ? (
+                    <span className="text-amber-400 text-sm">👑</span>
+                  ) : (
+                    <span>{item.rank}</span>
+                  )}
                 </div>
 
+                {/* Avatar */}
                 <img
                   src={getAvatar(item.userName, item.avatarUrl)}
                   alt={item.userName}
-                  className="w-10 h-10 rounded-full border-2 border-white shadow-sm bg-white object-cover flex-shrink-0"
+                  className="w-10 h-10 rounded-full border border-zinc-700 bg-zinc-800 object-cover flex-shrink-0"
                 />
 
+                {/* Name & Byline */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-bold text-slate-800 text-sm truncate">{item.userName}</p>
-                    {isCurrentUser && (
-                      <span className="text-[10px] font-black bg-brand-purple text-white px-2 py-0.5 rounded-full">
-                        YOU
-                      </span>
-                    )}
-                  </div>
+                  <p className="font-semibold text-sm truncate text-white">
+                    {item.userName}
+                  </p>
                   {item.byline && (
-                    <p className="text-[11px] font-bold text-slate-400 truncate mt-0.5">
+                    <p className="text-xs text-zinc-400 truncate mt-0.5">
                       {item.byline}
                     </p>
                   )}
                 </div>
 
-                <div className="font-black text-slate-900 text-base tabular-nums flex-shrink-0">
-                  {item.value.toLocaleString()}
-                  <span className="text-[10px] font-bold text-slate-400 ml-1">pts</span>
+                {/* Value / Points */}
+                <div className="font-bold text-sm text-white font-mono flex-shrink-0">
+                  {formatVal(item.value)}
                 </div>
               </div>
             );
           })
         )}
       </div>
+
     </div>
   );
 }
