@@ -1,6 +1,6 @@
 import Papa from 'papaparse';
 
-export const GOOGLE_SHEET_CSV_URL = "YOUR_GOOGLE_SHEET_CSV_LINK_HERE";
+export const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT534148vnBFD7iXB-7fBebu3hvCV-QGbU63AGkc7qibsJgfMI1ZqcyxksTlQNq9ioFHsgs3RpCBzdt/pub?output=csv";
 
 export async function fetchQuestionsFromSheet(sheetUrl = GOOGLE_SHEET_CSV_URL) {
   try {
