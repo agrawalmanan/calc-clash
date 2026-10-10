@@ -13,17 +13,13 @@ export function LeaderboardCard({
   podiumRankings = [],
   rankings = []
 }) {
-  // Sort rankings by rank
   const sortedPodium = [...podiumRankings].sort((a, b) => a.rank - b.rank);
-  
-  // Podium positions: 2nd on Left, 1st in Center (higher), 3rd on Right
   const first = sortedPodium.find(p => p.rank === 1);
   const second = sortedPodium.find(p => p.rank === 2);
   const third = sortedPodium.find(p => p.rank === 3);
 
   return (
     <div className="card-chunky p-6 bg-white border-2 border-slate-200 shadow-lg rounded-3xl overflow-hidden font-sans">
-      
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-6">
         <div>
@@ -40,11 +36,10 @@ export function LeaderboardCard({
         </span>
       </div>
 
-      {/* 🏆 PODIUM SECTION (Top 3) */}
+      {/* 🏆 PODIUM SECTION */}
       {podiumRankings.length > 0 && (
-        <div className="flex items-end justify-center gap-2 md:gap-4 mb-8 pt-4 pb-2 border-b border-slate-100">
-          
-          {/* 2nd Place */}
+        <div className="flex items-end justify-center gap-2 sm:gap-4 mb-8 pt-4 pb-2 border-b border-slate-100">
+          {/* 2nd */}
           {second ? (
             <div className="flex flex-col items-center w-24 sm:w-28 animate-fadeIn">
               <div className="relative mb-2">
@@ -66,7 +61,7 @@ export function LeaderboardCard({
             </div>
           ) : <div className="w-24 sm:w-28" />}
 
-          {/* 1st Place (Center & Elevated) */}
+          {/* 1st */}
           {first ? (
             <div className="flex flex-col items-center w-28 sm:w-32 -mt-4 z-10 animate-fadeIn">
               <div className="relative mb-2">
@@ -89,7 +84,7 @@ export function LeaderboardCard({
             </div>
           ) : <div className="w-28 sm:w-32" />}
 
-          {/* 3rd Place */}
+          {/* 3rd */}
           {third ? (
             <div className="flex flex-col items-center w-24 sm:w-28 animate-fadeIn">
               <div className="relative mb-2">
@@ -110,7 +105,6 @@ export function LeaderboardCard({
               </div>
             </div>
           ) : <div className="w-24 sm:w-28" />}
-
         </div>
       )}
 
@@ -135,19 +129,16 @@ export function LeaderboardCard({
                     : 'bg-white border-slate-100 hover:border-slate-200'
                 }`}
               >
-                {/* Rank # */}
                 <div className="w-7 text-center font-black text-sm text-slate-400 flex-shrink-0">
                   {item.rank === 1 ? '🥇' : item.rank === 2 ? '🥈' : item.rank === 3 ? '🥉' : `#${item.rank}`}
                 </div>
 
-                {/* Avatar */}
                 <img
                   src={getAvatar(item.userName, item.avatarUrl)}
                   alt={item.userName}
                   className="w-10 h-10 rounded-full border-2 border-white shadow-sm bg-white object-cover flex-shrink-0"
                 />
 
-                {/* Name & Byline */}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="font-bold text-slate-800 text-sm truncate">{item.userName}</p>
@@ -164,7 +155,6 @@ export function LeaderboardCard({
                   )}
                 </div>
 
-                {/* Score / Value */}
                 <div className="font-black text-slate-900 text-base tabular-nums flex-shrink-0">
                   {item.value.toLocaleString()}
                   <span className="text-[10px] font-bold text-slate-400 ml-1">pts</span>
@@ -174,7 +164,6 @@ export function LeaderboardCard({
           })
         )}
       </div>
-
     </div>
   );
 }
