@@ -27,7 +27,6 @@ export default function Battle() {
   const questions = room?.questions || [];
   const isFinished = currentQuestion >= questions.length && questions.length > 0;
 
-  // Live leaderboard when finished
   useEffect(() => {
     if (!isFinished || !room?.code) return;
 
@@ -43,7 +42,6 @@ export default function Battle() {
     return () => clearInterval(t);
   }, [isFinished, room?.code]);
 
-  // Play victory fanfare once when results open
   useEffect(() => {
     if (isFinished) playSound('victory');
   }, [isFinished]);
@@ -193,7 +191,7 @@ export default function Battle() {
             })}
           </div>
 
-          {/* RIGHT: Trophy LeaderboardCard */}
+          {/* RIGHT: LeaderboardCard */}
           <div className="lg:col-span-1">
             <div className="sticky top-8 space-y-4">
               <LeaderboardCard
@@ -233,3 +231,142 @@ export default function Battle() {
     <div className="min-h-screen flex flex-col p-4 max-w-xl mx-auto pt-6">
       {/* Top bar */}
       <div
+        className={`flex justify-between items-center mb-4 px-5 py-3 rounded-2xl shadow-sm border ${
+          streakOnFire
+            ? 'bg-orange-50 border-orange-400 animate-fireGlow'
+            : 'bg-white border-slate-100'
+        }`}
+      >
+        <span className="font-black text-slate-400 text-sm">
+          Q{currentQuestion + 1} <span className="text-slate-300">/ {questions.length}</span>
+        </span>
+        <div className="flex items-center gap-3">
+          {streakOnFire && (
+            <span className="font-black text-orange-600 animate-bounce text-sm">
+              🔥 STREAK x1.5!
+            </span>
+          )}
+          <span className="font-black text-brand-purple bg-purple-50 px-4 py-1 rounded-full text-sm">
+            ⭐ {score}
+          </span>
+        </div>
+      </div>
+
+      <OverallTimer
+        totalTimeLimit={room?.totalTimeLimit || questions.length * 45}
+        onTimeUp={handleTimeUp}
+      />
+
+      {/* Optional Image */}
+      {question.imageUrl && (
+        <div className="mb-4 rounded-2xl overflow-hidden border-4 border-slate-200 shadow-sm bg-white">
+          <img
+            src={question.imageUrl}
+            alt="Math Diagram"
+            className="w-full h-auto object-contain max-h-64 mx-auto"
+            onError={(e) => (e.target.style.display = 'none')}
+          />
+        </div>
+      )}
+
+      {/* Question Text */}
+      <div className="card-chunky p-6 mb-5 animate-fadeIn">
+        <div className="text-xs font-black text-brand-purple uppercase tracking-wider mb-2 text-center">
+          {question.topic || 'Calculus'} ·{' '}
+          {question.type === 'NUM' ? 'Type the Number' : 'Select Option'}
+        </div>
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-800 leading-snug text-center">
+          {question.question}
+        </h2>
+      </div>
+
+      {/* Options / Numeric Input */}
+      {question.type === 'NUM' ? (
+        <div className="flex flex-col gap-3 animate-fadeIn">
+          <input
+            type="number"
+            step="any"
+            value={numInput}
+            onChange={(e) => setNumInput(e.target.value)}
+            disabled={!!result || isSubmitting}
+            placeholder="Type your answer here..."
+            className="w-full p-5 rounded-2xl border-4 border-slate-100 bg-white text-slate-900 text-2xl font-black text-center placeholder:text-slate-300 focus:border-brand-purple focus:ring-4 focus:ring-brand-purple/20 outline-none transition-all disabled:opacity-50 shadow-inner"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && numInput.trim() !== '') handleSelect(numInput);
+            }}
+          />
+          <button
+            onClick={() => handleSelect(numInput)}
+            disabled={!!result || isSubmitting || numInput.trim() === ''}
+            className="btn-chunky btn-primary w-full py-4 text-xl font-black rounded-2xl"
+          >
+            Submit Answer
+          </button>
+
+          {result && (
+            <div
+              className={`p-4 rounded-xl text-center font-black mt-2 ${
+                result.isCorrect
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-700 animate-shake'
+              }`}
+            >
+              {result.isCorrect
+                ? '✓ CORRECT!'
+                : `✗ WRONG! (Answer was ${result.correctAnswer})`}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          className={`grid gap-3 ${
+            question.options?.filter((o) => o).length > 2
+              ? 'grid-cols-1 sm:grid-cols-2'
+              : 'grid-cols-1'
+          }`}
+        >
+          {(question.options || [])
+            .filter((opt) => opt && opt.trim() !== '')
+            .map((opt, idx) => {
+              let extra = 'btn-secondary';
+              let badge = ['A', 'B', 'C', 'D'][idx];
+
+              if (result) {
+                if (idx === result.correctAnswer) {
+                  extra =
+                    '!bg-green-500 !text-white !border-green-600 !shadow-[0_6px_0_0_#16a34a]';
+                  badge = '✓';
+                } else if (idx === selected) {
+                  extra =
+                    '!bg-red-500 !text-white !border-red-600 !shadow-[0_6px_0_0_#dc2626] animate-shake';
+                  badge = '✗';
+                } else {
+                  extra = 'opacity-40';
+                }
+              }
+
+              return (
+                <button
+                  key={`${currentQuestion}-${idx}`}
+                  onClick={() => handleSelect(idx)}
+                  disabled={!!result || isSubmitting}
+                  className={`btn-chunky w-full p-4 sm:p-5 rounded-2xl font-bold text-left flex items-center gap-4 ${extra}`}
+                >
+                  <span
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0 ${
+                      result && (idx === result.correctAnswer || idx === selected)
+                        ? 'bg-white/20'
+                        : 'bg-slate-100 text-slate-500'
+                    }`}
+                  >
+                    {badge}
+                  </span>
+                  <span className="text-base sm:text-lg">{opt}</span>
+                </button>
+              );
+            })}
+        </div>
+      )}
+    </div>
+  );
+}

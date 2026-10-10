@@ -35,7 +35,6 @@ export default function HostDashboard() {
   const students = (liveData?.players || []).filter((p) => p.name !== liveData?.host);
   const totalQuestions = liveData?.questions?.length || 10;
 
-  // Format data for LeaderboardCard props
   const podiumRankings = leaderboard.slice(0, 3).map((p, idx) => ({
     userId: p.name,
     userName: p.name,
@@ -65,7 +64,6 @@ export default function HostDashboard() {
   return (
     <div className="min-h-screen bg-indigo-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-6">
-
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border-2 border-slate-100">
           <div>
@@ -86,8 +84,7 @@ export default function HostDashboard() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-
-          {/* LEFT: Live Student Progress */}
+          {/* LEFT: Live Progress */}
           <div className="xl:col-span-2 card-chunky p-6 bg-white">
             <h2 className="text-lg font-black text-slate-700 mb-5 flex items-center gap-2">
               📊 Live Student Progress
@@ -142,7 +139,7 @@ export default function HostDashboard() {
             </button>
           </div>
 
-          {/* RIGHT: Trophy.so LeaderboardCard */}
+          {/* RIGHT: LeaderboardCard */}
           <div className="xl:col-span-3">
             <LeaderboardCard
               title="Live Battle Leaderboard"
@@ -151,7 +148,6 @@ export default function HostDashboard() {
               rankings={rankings}
             />
           </div>
-
         </div>
       </div>
     </div>

@@ -39,7 +39,7 @@ export function LeaderboardCard({
       {/* 🏆 PODIUM SECTION */}
       {podiumRankings.length > 0 && (
         <div className="flex items-end justify-center gap-2 sm:gap-4 mb-8 pt-4 pb-2 border-b border-slate-100">
-          {/* 2nd */}
+          {/* 2nd Place */}
           {second ? (
             <div className="flex flex-col items-center w-24 sm:w-28 animate-fadeIn">
               <div className="relative mb-2">
@@ -61,7 +61,7 @@ export function LeaderboardCard({
             </div>
           ) : <div className="w-24 sm:w-28" />}
 
-          {/* 1st */}
+          {/* 1st Place */}
           {first ? (
             <div className="flex flex-col items-center w-28 sm:w-32 -mt-4 z-10 animate-fadeIn">
               <div className="relative mb-2">
@@ -84,7 +84,7 @@ export function LeaderboardCard({
             </div>
           ) : <div className="w-28 sm:w-32" />}
 
-          {/* 3rd */}
+          {/* 3rd Place */}
           {third ? (
             <div className="flex flex-col items-center w-24 sm:w-28 animate-fadeIn">
               <div className="relative mb-2">
