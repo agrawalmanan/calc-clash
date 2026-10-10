@@ -33,8 +33,7 @@ export default function HostDashboard() {
           </div>
           <div className="w-64">
             <OverallTimer 
-              startedAt={liveData?.startedAt} 
-              totalTimeLimit={liveData?.totalTimeLimit} 
+              totalTimeLimit={liveData?.totalTimeLimit || totalQuestions * 45} 
               onTimeUp={() => dispatch({ type: 'GAME_FINISHED' })} 
             />
           </div>

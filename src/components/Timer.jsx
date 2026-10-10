@@ -1,31 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { playSound } from '../utils/sounds';
 
-export default function OverallTimer({ startedAt, totalTimeLimit, onTimeUp }) {
-  const [timeLeft, setTimeLeft] = useState(totalTimeLimit || 300);
+export default function OverallTimer({ totalTimeLimit = 300, onTimeUp }) {
+  const [timeLeft, setTimeLeft] = useState(totalTimeLimit);
+  const endTimeRef = useRef(null);
+  const onTimeUpRef = useRef(onTimeUp);
+
+  // Keep latest onTimeUp ref without triggering re-subscriptions
+  useEffect(() => {
+    onTimeUpRef.current = onTimeUp;
+  }, [onTimeUp]);
 
   useEffect(() => {
-    if (!startedAt) return;
+    // 🔒 Lock end time ONCE on mount (e.g. Current Time + 300s)
+    if (!endTimeRef.current) {
+      endTimeRef.current = Date.now() + totalTimeLimit * 1000;
+    }
 
-    const tick = () => {
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const remaining = Math.max(0, (totalTimeLimit || 300) - elapsed);
-      
+    const interval = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
       setTimeLeft(remaining);
-      
-      // Play tick sound when 10 seconds or less
-      if (remaining > 0 && remaining <= 10) playSound('tick');
-      if (remaining <= 0) onTimeUp?.();
-    };
 
-    tick();
-    const interval = setInterval(tick, 1000);
+      // Play tick sound when 10 seconds or less
+      if (remaining > 0 && remaining <= 10) {
+        playSound('tick');
+      }
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+        onTimeUpRef.current?.();
+      }
+    }, 1000);
+
     return () => clearInterval(interval);
-  }, [startedAt, totalTimeLimit, onTimeUp]);
+  }, []); // 👈 EMPTY ARRAY = NEVER RESTART ON RE-RENDERS / POLLING!
 
   const mins = Math.floor(timeLeft / 60);
   const secs = timeLeft % 60;
-  const pct = (timeLeft / (totalTimeLimit || 300)) * 100;
+  const pct = (timeLeft / totalTimeLimit) * 100;
   const isDanger = timeLeft <= 10;
 
   return (
@@ -37,7 +49,12 @@ export default function OverallTimer({ startedAt, totalTimeLimit, onTimeUp }) {
         </span>
       </div>
       <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-1000 ${isDanger ? 'bg-red-500' : 'bg-brand-blue'}`} style={{ width: `${pct}%` }} />
+        <div
+          className={`h-full rounded-full transition-all duration-1000 ease-linear ${
+            isDanger ? 'bg-red-500' : 'bg-brand-blue'
+          }`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );

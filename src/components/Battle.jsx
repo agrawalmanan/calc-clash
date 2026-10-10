@@ -240,7 +240,6 @@ export default function Battle() {
       </div>
 
       <OverallTimer
-        startedAt={room?.startedAt}
         totalTimeLimit={room?.totalTimeLimit || questions.length * 45}
         onTimeUp={handleTimeUp}
       />
