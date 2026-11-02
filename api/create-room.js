@@ -1,57 +1,32 @@
 import redis from './lib/redis';
 import { fetchQuestions, DEFAULT_SHEET_URL } from './lib/questions';
 
-function generateRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 4; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
-}
-
 export default async function handler(req, res) {
-  res.setHeader('Content-Type', 'application/json');
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
+  // 1. Basic Setup
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  
   try {
-    let body = req.body || {};
-    if (typeof body === 'string') {
-      try { body = JSON.parse(body); } catch (e) { body = {}; }
+    // 2. Body Handling (Vercel parses req.body automatically)
+    const data = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    const { hostName, timeLimit = 7 } = data;
+
+    if (!hostName) {
+      return res.status(400).json({ error: 'Host name is required' });
     }
 
-    const hostName = body.hostName;
-    const timeLimit = body.timeLimit !== undefined ? body.timeLimit : 7;
-
-    if (!hostName || !hostName.trim()) {
-      return res.status(400).json({ error: 'Host name is required.' });
+    // 3. Fetch Questions (Using your provided URL)
+    const questions = await fetchQuestions(DEFAULT_SHEET_URL);
+    if (!questions || questions.length === 0) {
+      return res.status(400).json({ error: 'No questions found in sheet' });
     }
 
-    // Fetch questions using the user's sheet URL
-    let questions;
-    try {
-      questions = await fetchQuestions(DEFAULT_SHEET_URL);
-    } catch (sheetErr) {
-      return res.status(400).json({ error: sheetErr.message });
-    }
+    // 4. Generate Room Code
+    const roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
 
-    let roomCode = generateRoomCode();
-    let existing = await redis.get(`room:${roomCode}`);
-    let attempts = 0;
-
-    while (existing && attempts < 10) {
-      roomCode = generateRoomCode();
-      existing = await redis.get(`room:${roomCode}`);
-      attempts++;
-    }
-
+    // 5. Save to Redis
     const roomData = {
       code: roomCode,
-      hostName: hostName.trim(),
-      sheetUrl: DEFAULT_SHEET_URL,
+      hostName,
       timeLimit: Number(timeLimit),
       phase: 'lobby',
       players: {},
@@ -61,9 +36,14 @@ export default async function handler(req, res) {
 
     await redis.set(`room:${roomCode}`, roomData);
 
+    // 6. Success Response
     return res.status(200).json({ success: true, roomCode, room: roomData });
+
   } catch (error) {
-    console.error('Create room error:', error);
-    return res.status(400).json({ error: error.message || 'Failed to create room.' });
+    console.error("Fatal API Error:", error);
+    return res.status(500).json({ 
+      error: "Server Error: " + error.message,
+      details: error.stack 
+    });
   }
 }
