@@ -1,17 +1,22 @@
 import { Redis } from '@upstash/redis';
 
-const memoryStore = new Map();
+// Global memory cache surviving warm Lambdas
+if (!globalThis._calc_clash_memory_store) {
+  globalThis._calc_clash_memory_store = new Map();
+}
+const memoryStore = globalThis._calc_clash_memory_store;
+
 let redisClient = null;
 
 try {
   const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 
-  if (url && token && url.startsWith('http')) {
+  if (url && token && typeof url === 'string' && url.startsWith('http')) {
     redisClient = new Redis({ url, token });
   }
 } catch (err) {
-  console.warn('Upstash Redis init warning:', err.message);
+  console.warn('Redis init note:', err.message);
 }
 
 export const redis = {
@@ -26,7 +31,7 @@ export const redis = {
           return val;
         }
       } catch (err) {
-        console.warn('Redis GET error, using memory fallback:', err.message);
+        console.warn('Redis read fallback:', err.message);
       }
     }
     return memoryStore.get(key) || null;
@@ -38,7 +43,7 @@ export const redis = {
       try {
         await redisClient.set(key, typeof value === 'object' ? JSON.stringify(value) : value);
       } catch (err) {
-        console.warn('Redis SET error, using memory fallback:', err.message);
+        console.warn('Redis write fallback:', err.message);
       }
     }
     return 'OK';

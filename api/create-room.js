@@ -23,19 +23,17 @@ export default async function handler(req, res) {
       try { body = JSON.parse(body); } catch (e) { body = {}; }
     }
 
-    const { hostName, timeLimit = 7, sheetUrl } = body;
+    const hostName = body.hostName;
+    const timeLimit = body.timeLimit !== undefined ? body.timeLimit : 7;
 
     if (!hostName || !hostName.trim()) {
       return res.status(400).json({ error: 'Host name is required.' });
     }
 
-    const targetUrl = (sheetUrl && sheetUrl.trim()) 
-      ? sheetUrl.trim() 
-      : (process.env.GOOGLE_SHEET_URL || DEFAULT_SHEET_URL);
-
+    // Fetch questions using the user's sheet URL
     let questions;
     try {
-      questions = await fetchQuestions(targetUrl);
+      questions = await fetchQuestions(DEFAULT_SHEET_URL);
     } catch (sheetErr) {
       return res.status(400).json({ error: sheetErr.message });
     }
@@ -53,7 +51,7 @@ export default async function handler(req, res) {
     const roomData = {
       code: roomCode,
       hostName: hostName.trim(),
-      sheetUrl: targetUrl,
+      sheetUrl: DEFAULT_SHEET_URL,
       timeLimit: Number(timeLimit),
       phase: 'lobby',
       players: {},
@@ -66,6 +64,6 @@ export default async function handler(req, res) {
     return res.status(200).json({ success: true, roomCode, room: roomData });
   } catch (error) {
     console.error('Create room error:', error);
-    return res.status(400).json({ error: error.message || 'Failed to create room' });
+    return res.status(400).json({ error: error.message || 'Failed to create room.' });
   }
 }
