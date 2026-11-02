@@ -1,11 +1,9 @@
-const BASE_URL = '/api';
-
 export const api = {
-  createRoom: async (hostName, sheetUrl, timeLimit) => {
+  createRoom: async (hostName, timeLimit) => {
     const res = await fetch('/api/create-room', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hostName, sheetUrl, timeLimit })
+      body: JSON.stringify({ hostName, timeLimit })
     });
     if (!res.ok) throw new Error((await res.json()).error);
     return res.json();

@@ -6,7 +6,6 @@ export default function Home() {
   
   // Host state
   const [hostName, setHostName] = useState('');
-  const [sheetUrl, setSheetUrl] = useState('');
   const [timeLimit, setTimeLimit] = useState(7); // Default 7 minutes
   
   // Player state
@@ -15,8 +14,8 @@ export default function Home() {
 
   const handleCreateRoom = (e) => {
     e.preventDefault();
-    if (hostName.trim() && sheetUrl.trim()) {
-      createRoom(hostName, sheetUrl, timeLimit);
+    if (hostName.trim()) {
+      createRoom(hostName, timeLimit);
     }
   };
 
@@ -46,7 +45,7 @@ export default function Home() {
               <span className="text-3xl">👑</span>
             </div>
             <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Host a Battle</h2>
-            <p className="text-slate-500 font-medium mb-8">Import questions from Google Sheets and invite your students.</p>
+            <p className="text-slate-500 font-medium mb-8">Create an arena for your students to compete in real-time.</p>
             
             <form onSubmit={handleCreateRoom} className="space-y-4">
               <div className="text-left">
@@ -60,17 +59,7 @@ export default function Home() {
                   onChange={(e) => setHostName(e.target.value)}
                 />
               </div>
-              <div className="text-left">
-                <label className="block text-sm font-bold text-slate-700 mb-2">Google Sheet CSV URL</label>
-                <input 
-                  type="url" 
-                  required
-                  placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 bg-white font-semibold outline-none transition-all"
-                  value={sheetUrl}
-                  onChange={(e) => setSheetUrl(e.target.value)}
-                />
-              </div>
+
               <div className="text-left mb-6">
                 <label className="block text-sm font-bold text-slate-700 mb-2">Total Time Limit</label>
                 <select 

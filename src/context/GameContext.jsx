@@ -44,11 +44,11 @@ export function GameProvider({ children }) {
     };
   }, [roomCode, playerId]);
 
-  const createRoom = async (hostName, sheetUrl, timeLimit) => {
+  const createRoom = async (name, timeLimit) => {
     try {
       setLoading(true);
       setError(null);
-      const data = await api.createRoom(hostName, sheetUrl, timeLimit);
+      const data = await api.createRoom(name, timeLimit);
       setRoomCode(data.roomCode);
       setIsHost(true);
       setRoomState(data.room);

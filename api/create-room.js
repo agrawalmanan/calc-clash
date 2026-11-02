@@ -1,92 +1,65 @@
-import redis from './lib/redis.js';
-import { fetchQuestionsFromSheet } from './lib/questions.js';
+import redis from './lib/redis';
+import { fetchQuestions } from './lib/questions';
+
+// Set your default published Google Sheet CSV URL here
+const DEFAULT_SHEET_URL = process.env.GOOGLE_SHEET_URL || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT534148vnBFD7iXB-7fBebu3hvCV-QGbU63AGkc7qibsJgfMI1ZqcyxksTlQNq9ioFHsgs3RpCBzdt/pub?output=csv';
+
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 4; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-
+  
   try {
     const { hostName, sheetUrl, timeLimit = 7 } = req.body;
-    if (!hostName) return res.status(400).json({ error: 'Host name required' });
     
+    // Use submitted URL or fallback to the pre-configured default sheet URL
+    const targetUrl = sheetUrl && sheetUrl.trim() !== '' ? sheetUrl : DEFAULT_SHEET_URL;
+
+    if (!hostName) {
+      return res.status(400).json({ error: 'Host name is required' });
+    }
+
+    // Fetch live questions from Google Sheets CSV
+    const questions = await fetchQuestions(targetUrl);
+    
+    if (!questions || questions.length === 0) {
+      return res.status(400).json({ error: 'Failed to load questions from Google Sheets CSV.' });
+    }
+
+    let roomCode = generateRoomCode();
+    let existing = await redis.get(`room:${roomCode}`);
+    
+    // Ensure room code uniqueness
+    let attempts = 0;
+    while (existing && attempts < 10) {
+      roomCode = generateRoomCode();
+      existing = await redis.get(`room:${roomCode}`);
+      attempts++;
+    }
+
     const roomData = {
       code: roomCode,
       hostName,
-      sheetUrl,
-      timeLimit: Number(timeLimit), // Save timeLimit into Redis
+      sheetUrl: targetUrl,
+      timeLimit: Number(timeLimit),
       phase: 'lobby',
       players: {},
       questions,
       createdAt: Date.now()
     };
 
-    // 🔥 LIVE Google Sheets only — no fallback
-    const allQuestions = await fetchQuestionsFromSheet(customSheetUrl);
+    await redis.set(`room:${roomCode}`, roomData);
 
-    let pool = [...allQuestions];
-    if (topic && topic !== 'mixed') {
-      const filtered = allQuestions.filter(
-        (q) => q.topic.toLowerCase() === topic.toLowerCase()
-      );
-      if (filtered.length > 0) pool = filtered;
-    }
-
-    const selected = pool
-      .sort(() => Math.random() - 0.5)
-      .slice(0, Math.min(questionCount || 10, pool.length));
-
-    if (selected.length === 0) {
-      return res.status(400).json({
-        error: 'No questions matched that topic. Check your Google Sheet Topic column.'
-      });
-    }
-
-    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const totalTimeLimit = selected.length * 45;
-
-    const room = {
-      code: roomCode,
-      host: hostName,
-      topic,
-      status: 'waiting',
-      players: [
-        {
-          name: hostName,
-          score: 0,
-          currentQuestion: 0,
-          answers: [],
-          finishedAt: null
-        }
-      ],
-      questions: selected,
-      totalTimeLimit,
-      startedAt: null,
-      createdAt: Date.now()
-    };
-
-    await redis.set(`room:${roomCode}`, room, { ex: 14400 });
-
-    const safeRoom = {
-      ...room,
-      questions: room.questions.map((q) => ({
-        id: q.id,
-        topic: q.topic,
-        type: q.type,
-        imageUrl: q.imageUrl,
-        question: q.question,
-        options: q.options,
-        points: q.points
-      }))
-    };
-
-    return res.status(200).json({ success: true, room: safeRoom, roomCode });
-  } catch (err) {
-    console.error('Create room error:', err);
-    return res.status(400).json({
-      error: err.message || 'Failed to load questions from Google Sheets'
-    });
+    res.status(200).json({ success: true, roomCode, room: roomData });
+  } catch (error) {
+    console.error('Create room error:', error);
+    res.status(500).json({ error: error.message || 'Failed to create room' });
   }
 }
