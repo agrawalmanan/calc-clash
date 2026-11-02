@@ -1,69 +1,100 @@
-import Papa from 'papaparse';
-
-// 🛑 PASTE YOUR PUBLISHED GOOGLE SHEET CSV URL HERE (required)
-export const GOOGLE_SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vT534148vnBFD7iXB-7fBebu3hvCV-QGbU63AGkc7qibsJgfMI1ZqcyxksTlQNq9ioFHsgs3RpCBzdt/pub?output=csv";
-
-export async function fetchQuestionsFromSheet(sheetUrl = GOOGLE_SHEET_CSV_URL) {
-  const targetUrl = (sheetUrl && sheetUrl.trim() !== "") ? sheetUrl.trim() : GOOGLE_SHEET_CSV_URL;
-
-  if (!targetUrl || targetUrl.includes("YOUR_ID") || targetUrl.includes("YOUR_GOOGLE_SHEET")) {
-    throw new Error("No valid Google Sheet CSV URL configured. Publish your sheet and paste the CSV link.");
+/**
+ * Fetches and parses CSV questions from a published Google Sheet.
+ */
+export async function fetchQuestions(csvUrl) {
+  if (!csvUrl || typeof csvUrl !== 'string' || !csvUrl.startsWith('http')) {
+    throw new Error('Invalid Google Sheet CSV URL. Please publish your Google Sheet as a CSV.');
   }
 
-  const res = await fetch(targetUrl);
-  if (!res.ok) {
-    throw new Error(`Failed to fetch Google Sheet (HTTP ${res.status}). Check that it is published as CSV.`);
+  let response;
+  try {
+    response = await fetch(csvUrl);
+  } catch (err) {
+    throw new Error('Network error attempting to fetch Google Sheet CSV.');
   }
 
-  const csvText = await res.text();
-  const parsed = Papa.parse(csvText, {
-    header: true,
-    skipEmptyLines: true,
-    transformHeader: (h) => h.trim()
-  });
-
-  if (!parsed.data || parsed.data.length === 0) {
-    throw new Error("Google Sheet is empty or headers are wrong.");
+  if (!response.ok) {
+    throw new Error(`Google Sheet fetch failed with HTTP status ${response.status}. Ensure the sheet is published to web.`);
   }
 
-  const questions = parsed.data
-    .filter((row) => row["Question"] && row["Question"].trim() !== "")
-    .map((row, index) => {
-      const type = (row["Type"]?.trim() || "MCQ").toUpperCase();
+  const text = await response.text();
+  
+  // Detect if Google returned an HTML login/error page instead of raw CSV
+  if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
+    throw new Error('Google returned HTML instead of CSV. Make sure you selected "File > Share > Publish to web" and chose "Comma-separated values (.csv)".');
+  }
 
-      const opt1 = row["Opt 1"]?.trim() || row["Option 1"]?.trim() || "";
-      const opt2 = row["Opt 2"]?.trim() || row["Option 2"]?.trim() || "";
-      const opt3 = row["Opt 3"]?.trim() || row["Option 3"]?.trim() || "";
-      const opt4 = row["Opt 4"]?.trim() || row["Option 4"]?.trim() || "";
+  const rows = parseCSV(text);
+  if (rows.length < 2) {
+    throw new Error('Google Sheet CSV contains no question rows.');
+  }
 
-      const rawCorrect =
-        row["Correct Answer"]?.trim() ||
-        row["Correct Answer (1-4)"]?.trim() ||
-        "1";
+  const headers = rows[0].map(h => h.trim());
+  const questions = [];
 
-      let correctVal;
-      if (type === "NUM") {
-        correctVal = parseFloat(rawCorrect);
-      } else {
-        correctVal = Math.max(0, parseInt(rawCorrect, 10) - 1);
-      }
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row.length === 0 || (row.length === 1 && !row[0].trim())) continue;
 
-      return {
-        id: index + 1,
-        topic: row["Topic"]?.trim() || "Mixed",
-        type,
-        imageUrl: row["Image URL"]?.trim() || null,
-        question: row["Question"].trim(),
-        options: type === "TF" ? ["True", "False"] : [opt1, opt2, opt3, opt4],
-        correct: correctVal,
-        explanation: row["Explanation"]?.trim() || "",
-        points: parseInt(row["Points"], 10) || 100
-      };
+    const rowObj = {};
+    headers.forEach((header, index) => {
+      rowObj[header] = row[index] ? row[index].trim() : '';
     });
 
+    if (rowObj.Question && rowObj.Type) {
+      questions.push(rowObj);
+    }
+  }
+
   if (questions.length === 0) {
-    throw new Error("No valid questions found in Google Sheet. Check your headers and rows.");
+    throw new Error('No valid questions found in Google Sheet. Ensure headers include: Topic, Type, Question, Opt 1, Opt 2, Opt 3, Opt 4, Correct Answer, Explanation.');
   }
 
   return questions;
+}
+
+// Lightweight RFC 4180 CSV Parser
+function parseCSV(text) {
+  const lines = [];
+  let row = [];
+  let field = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    const nextChar = text[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        field += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      row.push(field);
+      field = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+      row.push(field);
+      field = '';
+      if (row.some(f => f.trim() !== '')) {
+        lines.push(row);
+      }
+      row = [];
+    } else {
+      field += char;
+    }
+  }
+
+  if (field !== '' || row.length > 0) {
+    row.push(field);
+    if (row.some(f => f.trim() !== '')) {
+      lines.push(row);
+    }
+  }
+
+  return lines;
 }

@@ -1,7 +1,7 @@
 import redis from './lib/redis';
 import { fetchQuestions } from './lib/questions';
 
-// Set your default published Google Sheet CSV URL here
+// Default CSV URL fallback if process.env.GOOGLE_SHEET_URL is not provided
 const DEFAULT_SHEET_URL = process.env.GOOGLE_SHEET_URL || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT534148vnBFD7iXB-7fBebu3hvCV-QGbU63AGkc7qibsJgfMI1ZqcyxksTlQNq9ioFHsgs3RpCBzdt/pub?output=csv';
 
 function generateRoomCode() {
@@ -14,30 +14,32 @@ function generateRoomCode() {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
-  
+  res.setHeader('Content-Type', 'application/json');
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   try {
-    const { hostName, sheetUrl, timeLimit = 7 } = req.body;
-    
-    // Use submitted URL or fallback to the pre-configured default sheet URL
-    const targetUrl = sheetUrl && sheetUrl.trim() !== '' ? sheetUrl : DEFAULT_SHEET_URL;
+    const { hostName, sheetUrl, timeLimit = 7 } = req.body || {};
 
-    if (!hostName) {
-      return res.status(400).json({ error: 'Host name is required' });
+    if (!hostName || !hostName.trim()) {
+      return res.status(400).json({ error: 'Host name is required.' });
     }
 
-    // Fetch live questions from Google Sheets CSV
+    const targetUrl = (sheetUrl && sheetUrl.trim()) ? sheetUrl.trim() : DEFAULT_SHEET_URL;
+
+    if (!targetUrl) {
+      return res.status(400).json({ error: 'No Google Sheet CSV URL provided or configured in environment.' });
+    }
+
+    // Fetch questions from published Google Sheet
     const questions = await fetchQuestions(targetUrl);
-    
-    if (!questions || questions.length === 0) {
-      return res.status(400).json({ error: 'Failed to load questions from Google Sheets CSV.' });
-    }
 
     let roomCode = generateRoomCode();
     let existing = await redis.get(`room:${roomCode}`);
-    
-    // Ensure room code uniqueness
     let attempts = 0;
+
     while (existing && attempts < 10) {
       roomCode = generateRoomCode();
       existing = await redis.get(`room:${roomCode}`);
@@ -46,7 +48,7 @@ export default async function handler(req, res) {
 
     const roomData = {
       code: roomCode,
-      hostName,
+      hostName: hostName.trim(),
       sheetUrl: targetUrl,
       timeLimit: Number(timeLimit),
       phase: 'lobby',
@@ -57,9 +59,9 @@ export default async function handler(req, res) {
 
     await redis.set(`room:${roomCode}`, roomData);
 
-    res.status(200).json({ success: true, roomCode, room: roomData });
+    return res.status(200).json({ success: true, roomCode, room: roomData });
   } catch (error) {
     console.error('Create room error:', error);
-    res.status(500).json({ error: error.message || 'Failed to create room' });
+    return res.status(500).json({ error: error.message || 'Failed to create room' });
   }
 }
