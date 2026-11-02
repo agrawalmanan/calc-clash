@@ -1,88 +1,146 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useGame } from '../context/GameContext';
 
 export default function Home() {
   const { createRoom, joinRoom, loading } = useGame();
-  const [mode, setMode] = useState(null);
-  const [name, setName] = useState('');
+  
+  // Host state
+  const [hostName, setHostName] = useState('');
+  const [sheetUrl, setSheetUrl] = useState('');
+  const [timeLimit, setTimeLimit] = useState(7); // Default 7 minutes
+  
+  // Player state
+  const [playerName, setPlayerName] = useState('');
   const [roomCode, setRoomCode] = useState('');
-  const [topic, setTopic] = useState('mixed');
-  const [customSheetUrl, setCustomSheetUrl] = useState('');
 
-  const handleCreate = (e) => {
+  const handleCreateRoom = (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
-    createRoom(name.trim(), topic, 10, customSheetUrl.trim() || undefined);
+    if (hostName.trim() && sheetUrl.trim()) {
+      createRoom(hostName, sheetUrl, timeLimit);
+    }
+  };
+
+  const handleJoinRoom = (e) => {
+    e.preventDefault();
+    if (playerName.trim() && roomCode.trim()) {
+      joinRoom(playerName, roomCode.toUpperCase());
+    }
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 overflow-hidden relative">
-      {/* Subtle Floating Math Symbols */}
-      <div className="absolute top-20 left-10 text-5xl opacity-20 animate-float text-brand-purple font-black">∫</div>
-      <div className="absolute bottom-20 right-10 text-6xl opacity-20 animate-float-delayed text-brand-pink font-black">∑</div>
-      <div className="absolute top-40 right-20 text-4xl opacity-20 animate-float text-brand-blue font-black">dx</div>
-
-      <div className="text-center mb-8 z-10 animate-fadeIn">
-        <div className="inline-block bg-white px-6 py-2 rounded-full shadow-sm text-xs font-bold text-slate-500 mb-4 border border-slate-100">
-          🎓 BTech First Year Engineering Calculus
-        </div>
-        <h1 className="text-6xl md:text-8xl font-black mb-2 tracking-tight text-slate-800">
-          Calc<span className="text-brand-purple">Clash</span> ⚔️
+    <div className="min-h-screen bg-indigo-50 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-4xl text-center mb-12">
+        <h1 className="text-6xl md:text-8xl font-black text-indigo-950 mb-4 tracking-tighter drop-shadow-sm">
+          Calc<span className="text-indigo-600">Clash</span>
         </h1>
-        <p className="text-slate-500 font-bold text-base md:text-lg">Real-Time Calculus Arena</p>
+        <p className="text-xl text-slate-600 font-semibold max-w-2xl mx-auto">
+          The ultimate real-time calculus battle arena.
+        </p>
       </div>
 
-      <div className="w-full max-w-sm z-10">
-        {!mode && (
-          <div className="flex flex-col gap-4 animate-fadeIn">
-            <button onClick={() => setMode('join')} className="btn-chunky btn-primary py-5 text-xl font-black rounded-2xl w-full">
-              🎮 Join Battle
-            </button>
-            <button onClick={() => setMode('create')} className="btn-chunky btn-secondary py-4 text-lg font-bold rounded-2xl w-full">
-              👨‍🏫 Host Game
-            </button>
+      <div className="w-full max-w-4xl grid md:grid-cols-2 gap-8">
+        {/* Host Card */}
+        <div className="bg-white p-8 rounded-3xl shadow-xl border-4 border-slate-100 flex flex-col justify-between">
+          <div>
+            <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mb-6">
+              <span className="text-3xl">👑</span>
+            </div>
+            <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Host a Battle</h2>
+            <p className="text-slate-500 font-medium mb-8">Import questions from Google Sheets and invite your students.</p>
+            
+            <form onSubmit={handleCreateRoom} className="space-y-4">
+              <div className="text-left">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Host Name</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Prof. Smith"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 bg-white font-semibold outline-none transition-all"
+                  value={hostName}
+                  onChange={(e) => setHostName(e.target.value)}
+                />
+              </div>
+              <div className="text-left">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Google Sheet CSV URL</label>
+                <input 
+                  type="url" 
+                  required
+                  placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 bg-white font-semibold outline-none transition-all"
+                  value={sheetUrl}
+                  onChange={(e) => setSheetUrl(e.target.value)}
+                />
+              </div>
+              <div className="text-left mb-6">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Total Time Limit</label>
+                <select 
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/20 bg-white font-semibold text-slate-700 outline-none transition-all cursor-pointer"
+                  value={timeLimit}
+                  onChange={(e) => setTimeLimit(Number(e.target.value))}
+                >
+                  <option value={3}>3 Minutes</option>
+                  <option value={5}>5 Minutes</option>
+                  <option value={7}>7 Minutes</option>
+                  <option value={10}>10 Minutes</option>
+                  <option value={0}>No Time Limit (∞)</option>
+                </select>
+              </div>
+              
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black text-lg py-4 rounded-xl shadow-[0_4px_0_rgb(67,56,202)] active:shadow-[0_0px_0_rgb(67,56,202)] active:translate-y-1 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Creating Arena...' : 'Create Arena'}
+              </button>
+            </form>
           </div>
-        )}
+        </div>
 
-        {mode === 'join' && (
-          <form onSubmit={(e) => { e.preventDefault(); joinRoom(roomCode, name); }} className="card-chunky p-6 space-y-4 animate-fadeIn">
-            <h2 className="text-2xl font-black text-center text-slate-700">🎮 Join Battle</h2>
-            <input type="text" placeholder="Your Nickname" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold focus:border-brand-purple outline-none" required />
-            <input type="text" placeholder="ROOM CODE" value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} maxLength={6} className="w-full px-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-xl font-black text-center text-2xl tracking-[0.3em] focus:border-brand-purple outline-none uppercase" required />
-            <button type="submit" disabled={loading} className="btn-chunky btn-primary w-full py-4 text-xl rounded-xl font-black mt-2">
-              {loading ? 'Joining...' : "Let's Go! 🚀"}
-            </button>
-            <button type="button" onClick={() => setMode(null)} className="w-full font-bold text-slate-400 mt-2 hover:text-slate-600">Back</button>
-          </form>
-        )}
-
-        {mode === 'create' && (
-          <form onSubmit={handleCreate} className="card-chunky p-6 space-y-4 animate-fadeIn">
-            <h2 className="text-2xl font-black text-center text-slate-700">👨‍🏫 Host Game</h2>
-            <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1">HOST NAME</label>
-              <input type="text" placeholder="e.g. Prof. Alex" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold focus:border-brand-purple outline-none" required />
+        {/* Player Card */}
+        <div className="bg-white p-8 rounded-3xl shadow-xl border-4 border-slate-100 flex flex-col justify-between">
+          <div>
+            <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mb-6">
+              <span className="text-3xl">⚔️</span>
             </div>
-            <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1">TOPIC</label>
-              <select value={topic} onChange={(e) => setTopic(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl font-bold focus:border-brand-purple outline-none">
-                <option value="mixed">🎲 Mixed Topics</option>
-                <option value="Limits">Limits</option>
-                <option value="Derivatives">Derivatives</option>
-                <option value="Integrals">Integrals</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-xs font-bold text-slate-400 block mb-1">GOOGLE SHEETS CSV LINK (OPTIONAL)</label>
-              <input type="url" placeholder="https://docs.google.com/.../pub?output=csv" value={customSheetUrl} onChange={(e) => setCustomSheetUrl(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-xs font-mono focus:border-brand-purple outline-none" />
-              <p className="text-[10px] text-slate-400 mt-1">Leave empty to use default sheet.</p>
-            </div>
-            <button type="submit" disabled={loading} className="btn-chunky btn-primary w-full py-4 text-xl rounded-xl font-black mt-2">
-              {loading ? 'Creating...' : "Create Room 🏟️"}
-            </button>
-            <button type="button" onClick={() => setMode(null)} className="w-full font-bold text-slate-400 mt-2 hover:text-slate-600">Back</button>
-          </form>
-        )}
+            <h2 className="text-3xl font-black text-slate-800 mb-2 tracking-tight">Join a Battle</h2>
+            <p className="text-slate-500 font-medium mb-8">Enter your teacher's room code to enter the arena.</p>
+            
+            <form onSubmit={handleJoinRoom} className="space-y-4">
+              <div className="text-left">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Your Name</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Alex"
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 bg-white font-semibold outline-none transition-all"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                />
+              </div>
+              <div className="text-left mb-6">
+                <label className="block text-sm font-bold text-slate-700 mb-2">Room Code</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. A1B2"
+                  maxLength={4}
+                  className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 bg-white font-black text-lg uppercase tracking-widest outline-none transition-all placeholder:font-semibold placeholder:tracking-normal"
+                  value={roomCode}
+                  onChange={(e) => setRoomCode(e.target.value)}
+                />
+              </div>
+              
+              <button 
+                type="submit" 
+                disabled={loading}
+                className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-black text-lg py-4 rounded-xl shadow-[0_4px_0_rgb(5,150,105)] active:shadow-[0_0px_0_rgb(5,150,105)] active:translate-y-1 transition-all disabled:opacity-70 disabled:cursor-not-allowed mt-auto"
+              >
+                {loading ? 'Joining...' : 'Enter Arena'}
+              </button>
+            </form>
+          </div>
+        </div>
       </div>
     </div>
   );

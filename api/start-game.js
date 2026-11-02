@@ -1,31 +1,31 @@
-import redis from './lib/redis.js';
+import redis from './lib/redis';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
-
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  
   try {
-    const { roomCode, hostName } = req.body;
-    const code = roomCode?.toUpperCase();
+    const { roomCode } = req.body;
+    const room = await redis.get(`room:${roomCode}`);
+    if (!room) return res.status(404).json({ error: 'Room not found' });
 
-    const data = await redis.get(`room:${code}`);
-    if (!data) return res.status(404).json({ error: 'Room not found' });
+    // Determine the end time
+    const limit = room.timeLimit !== undefined ? room.timeLimit : 7;
+    const endTime = limit > 0 ? Date.now() + (limit * 60 * 1000) : null;
 
-    const room = typeof data === 'string' ? JSON.parse(data) : data;
+    room.phase = 'playing';
+    room.currentQuestionIndex = 0;
+    room.endTime = endTime; // Save absolute timestamp in milliseconds
 
-    if (room.host !== hostName) {
-      return res.status(403).json({ error: 'Only host can start the game!' });
-    }
+    // Reset player scores for the new game
+    Object.keys(room.players).forEach(id => {
+      room.players[id].score = 0;
+      room.players[id].streak = 0;
+      room.players[id].answers = {};
+    });
 
-    room.status = 'playing';
-    room.startedAt = Date.now();
-
-    await redis.set(`room:${code}`, JSON.stringify(room), { ex: 14400 });
-
-    return res.status(200).json({ success: true });
-  } catch (err) {
-    return res.status(500).json({ error: 'Failed to start game' });
+    await redis.set(`room:${roomCode}`, room);
+    res.status(200).json({ success: true, room });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to start game' });
   }
 }

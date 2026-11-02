@@ -1,49 +1,57 @@
-import { useState, useEffect, useRef } from 'react';
-import { playSound } from '../utils/sounds';
+import React, { useState, useEffect } from 'react';
 
-export default function OverallTimer({ totalTimeLimit = 300, onTimeUp }) {
-  const [timeLeft, setTimeLeft] = useState(totalTimeLimit);
-  const endTimeRef = useRef(null);
-  const onTimeUpRef = useRef(onTimeUp);
-
-  useEffect(() => { onTimeUpRef.current = onTimeUp; }, [onTimeUp]);
+export default function Timer({ endTime, onTimeUp }) {
+  const [timeLeft, setTimeLeft] = useState(() => {
+    if (!endTime) return null;
+    return Math.max(0, endTime - Date.now());
+  });
 
   useEffect(() => {
-    if (!endTimeRef.current) endTimeRef.current = Date.now() + totalTimeLimit * 1000;
+    if (!endTime) return;
 
     const interval = setInterval(() => {
-      const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000));
+      const remaining = Math.max(0, endTime - Date.now()); // Hardstop negative looping
       setTimeLeft(remaining);
 
-      if (remaining > 0 && remaining <= 10) playSound('tick');
-      if (remaining <= 0) {
+      if (remaining === 0) {
         clearInterval(interval);
-        onTimeUpRef.current?.();
+        if (onTimeUp) onTimeUp();
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [endTime, onTimeUp]);
 
-  const mins = Math.floor(timeLeft / 60);
-  const secs = timeLeft % 60;
-  const isDanger = timeLeft <= 10;
+  // Handle "No Time Limit" UI
+  if (!endTime) {
+    return (
+      <div className="flex items-center gap-2 bg-white px-4 py-2 border-4 border-slate-100 rounded-2xl shadow-sm text-slate-400 font-bold">
+        <span className="text-xl leading-none">∞</span>
+        <span className="text-sm tracking-wide">NO LIMIT</span>
+      </div>
+    );
+  }
+
+  const totalSeconds = Math.floor(timeLeft / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  
+  const isUrgent = totalSeconds > 0 && totalSeconds <= 10;
+  const isFinished = totalSeconds === 0;
 
   return (
-    <div className="w-full mb-4">
-      <div className="flex justify-between items-center mb-1.5">
-        <span className="text-sm font-bold text-slate-500">⏱️ Battle Time</span>
-        
-        {/* 🔥 DAISY UI ROLLING COUNTDOWN 🔥 */}
-        <span className={`countdown font-mono text-2xl font-black ${isDanger ? 'text-red-500 animate-pulse' : 'text-slate-700'}`}>
-          <span style={{ "--value": mins }}></span>:
-          <span style={{ "--value": secs }}></span>
-        </span>
-      </div>
-      
-      <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all duration-1000 ease-linear ${isDanger ? 'bg-red-500' : 'bg-brand-blue'}`} style={{ width: `${(timeLeft / totalTimeLimit) * 100}%` }} />
-      </div>
+    <div className={`flex items-center gap-2 bg-white px-4 py-2 border-4 ${
+      isUrgent ? 'border-rose-500 text-rose-600 animate-pulse' : 
+      isFinished ? 'border-slate-800 text-slate-800' : 
+      'border-slate-100 text-slate-800'
+    } rounded-2xl shadow-sm font-mono font-bold text-xl transition-colors`}>
+      <span className="countdown">
+        <span style={{ "--value": minutes }}></span>
+      </span>
+      :
+      <span className="countdown">
+        <span style={{ "--value": seconds }}></span>
+      </span>
     </div>
   );
 }

@@ -9,8 +9,19 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { hostName, topic = 'mixed', questionCount = 10, customSheetUrl } = req.body;
+    const { hostName, sheetUrl, timeLimit = 7 } = req.body;
     if (!hostName) return res.status(400).json({ error: 'Host name required' });
+    
+    const roomData = {
+      code: roomCode,
+      hostName,
+      sheetUrl,
+      timeLimit: Number(timeLimit), // Save timeLimit into Redis
+      phase: 'lobby',
+      players: {},
+      questions,
+      createdAt: Date.now()
+    };
 
     // 🔥 LIVE Google Sheets only — no fallback
     const allQuestions = await fetchQuestionsFromSheet(customSheetUrl);

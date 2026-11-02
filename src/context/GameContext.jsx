@@ -124,11 +124,11 @@ export function GameProvider({ children }) {
 
   useEffect(() => () => stopPolling(), [stopPolling]);
 
-  const createRoom = useCallback(async (hostName, topic, questionCount, customSheetUrl) => {
-    dispatch({ type: 'SET_LOADING', payload: true });
-    dispatch({ type: 'SET_ERROR', payload: null });
+    const createRoom = async (name, sheetUrl, timeLimit) => { // Pass it in
     try {
-      const data = await api.createRoom({ hostName, topic, questionCount, customSheetUrl });
+      setLoading(true);
+      setError(null);
+      const data = await api.createRoom(name, sheetUrl, timeLimit);
       if (data.success) {
         dispatch({ type: 'SET_PLAYER', payload: hostName });
         dispatch({ type: 'SET_ROOM', payload: data.room });

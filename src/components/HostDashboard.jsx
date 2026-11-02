@@ -1,153 +1,163 @@
-import { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
-import { api } from '../utils/api';
-import OverallTimer from './Timer';
+import Timer from './Timer';
 import { LeaderboardCard } from './LeaderboardCard';
-
-function getAvatar(name) {
-  return `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}&backgroundColor=c0aede,ffdfbf,b6e3f4,d1d4f9`;
-}
+import { playSound } from '../utils/sounds';
 
 export default function HostDashboard() {
-  const { room, dispatch, roomCode, resetGame } = useGame();
-  const [liveData, setLiveData] = useState(room);
-  const [leaderboard, setLeaderboard] = useState([]);
+  const { roomState, startGame, endGame } = useGame();
+  const [isTimeUp, setIsTimeUp] = useState(false);
 
+  // Monitor timer for hardstop
   useEffect(() => {
-    const fetchAll = async () => {
-      try {
-        const [statusRes, lbRes] = await Promise.all([
-          api.getRoomStatus(roomCode),
-          api.getLeaderboard(roomCode)
-        ]);
-        if (statusRes.success) setLiveData(statusRes.room);
-        if (lbRes.success) setLeaderboard(lbRes.leaderboard || []);
-      } catch (e) {
-        console.error(e);
-      }
-    };
+    if (roomState?.endTime && Date.now() >= roomState.endTime) {
+      setIsTimeUp(true);
+    }
+  }, [roomState?.endTime]);
 
-    fetchAll();
-    const interval = setInterval(fetchAll, 2000);
-    return () => clearInterval(interval);
-  }, [roomCode]);
+  const handleTimeUp = () => {
+    if (!isTimeUp) {
+      setIsTimeUp(true);
+      playSound('wrong'); 
+    }
+  };
 
-  const students = (liveData?.players || []).filter((p) => p.name !== liveData?.host);
-  const totalQuestions = liveData?.questions?.length || 10;
+  if (!roomState) return null;
 
-  const podiumRankings = leaderboard.slice(0, 3).map((p, idx) => ({
-    userId: p.name,
-    userName: p.name,
-    rank: idx + 1,
-    value: p.score,
-    avatarUrl: getAvatar(p.name)
-  }));
+  const playersList = Object.values(roomState.players || {});
 
-  const rankings = leaderboard.map((p, idx) => {
-    let byline = "1st Year BTech";
-    if (p.score >= 500) byline = "🔥 Calculus Master";
-    else if (p.score >= 300) byline = "⚡ Limit Slayer";
-    else if (p.score >= 100) byline = "📐 Derivative Novice";
-
-    return {
-      userId: p.name,
-      rank: idx + 1,
-      userName: p.name,
-      byline: byline,
-      value: p.score,
-      displayed: true
-    };
-  });
-
-  const currentDateStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
-  return (
-    <div className="min-h-screen bg-indigo-50 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border-2 border-slate-100">
-          <div>
-            <h1 className="text-3xl font-black text-slate-800">👨‍🏫 Teacher Dashboard</h1>
-            <p className="text-brand-purple font-bold mt-1">
-              Room Code: <span className="text-2xl tracking-[0.3em] font-black">{roomCode}</span>
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              {students.length} student{students.length !== 1 ? 's' : ''} connected
-            </p>
+  // LOBBY PHASE
+  if (roomState.phase === 'lobby') {
+    return (
+      <div className="max-w-4xl mx-auto w-full text-center">
+        <div className="bg-white p-12 rounded-3xl shadow-xl border-4 border-slate-100 mb-8">
+          <h2 className="text-xl font-bold text-slate-400 uppercase tracking-widest mb-2">Join at CalcClash.com with code</h2>
+          <div className="text-7xl sm:text-9xl font-black text-indigo-950 tracking-widest mb-8 drop-shadow-sm">
+            {roomState.code}
           </div>
-          <div className="w-full md:w-72">
-            <OverallTimer
-              totalTimeLimit={liveData?.totalTimeLimit || totalQuestions * 45}
-              onTimeUp={() => dispatch({ type: 'GAME_FINISHED' })}
-            />
+          
+          <div className="flex items-center justify-center gap-4 mb-8">
+            <div className="bg-indigo-50 text-indigo-800 px-6 py-3 rounded-2xl font-black text-xl border-2 border-indigo-100">
+              👥 {playersList.length} Players Joined
+            </div>
           </div>
+
+          <button 
+            onClick={startGame}
+            disabled={playersList.length === 0}
+            className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-300 text-white font-black text-2xl px-12 py-5 rounded-2xl shadow-[0_6px_0_rgb(5,150,105)] active:shadow-[0_0px_0_rgb(5,150,105)] active:translate-y-1 transition-all"
+          >
+            Start Battle Now
+          </button>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-6">
-          {/* LEFT: Live Progress */}
-          <div className="xl:col-span-2 card-chunky p-6 bg-white">
-            <h2 className="text-lg font-black text-slate-700 mb-5 flex items-center gap-2">
-              📊 Live Student Progress
-              <span className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse" />
-            </h2>
-
-            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-              {students.length === 0 ? (
-                <p className="text-slate-400 font-bold text-center py-16">
-                  Waiting for students to join...
-                </p>
-              ) : (
-                students.map((student, idx) => {
-                  const progressPct = Math.min(100, (student.currentQuestion / totalQuestions) * 100);
-                  const isFinished = student.finishedAt !== null;
-
-                  return (
-                    <div key={idx} className="bg-slate-50 border border-slate-100 p-4 rounded-2xl flex items-center gap-4">
-                      <img
-                        src={getAvatar(student.name)}
-                        alt={student.name}
-                        className="w-10 h-10 rounded-full border-2 border-white shadow-sm bg-white"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-baseline mb-1">
-                          <span className="font-bold text-slate-800 truncate">{student.name}</span>
-                          <span className="text-xs font-black text-brand-purple">{student.score} pts</span>
-                        </div>
-                        <div className="h-2.5 bg-slate-200 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full transition-all duration-500 rounded-full ${
-                              isFinished ? 'bg-emerald-500' : 'bg-brand-blue'
-                            }`}
-                            style={{ width: `${progressPct}%` }}
-                          />
-                        </div>
-                        <div className="text-[10px] font-bold text-slate-400 mt-1">
-                          {isFinished ? '✅ Finished' : `Q${student.currentQuestion} / ${totalQuestions}`}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
+        <div className="flex flex-wrap justify-center gap-4">
+          {playersList.map(p => (
+            <div key={p.id} className="bg-white px-5 py-3 rounded-2xl font-bold text-slate-700 shadow-sm border-2 border-slate-100 flex items-center gap-3 animate-fadeIn">
+              <img src={p.avatar} alt="avatar" className="w-8 h-8 rounded-full bg-slate-100" />
+              {p.name}
             </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-            <button
-              onClick={resetGame}
-              className="btn-chunky btn-secondary w-full py-3 text-sm font-black rounded-xl mt-6"
-            >
-              End Session & Exit 🏠
-            </button>
-          </div>
+  // LEADERBOARD PHASE
+  if (roomState.phase === 'leaderboard') {
+    return (
+      <div className="max-w-4xl mx-auto w-full pb-12">
+        <h2 className="text-5xl font-black text-indigo-950 text-center mb-8 tracking-tight drop-shadow-sm">Final Rankings</h2>
+        <LeaderboardCard players={playersList.sort((a, b) => b.score - a.score)} />
+      </div>
+    );
+  }
 
-          {/* RIGHT: LeaderboardCard */}
-          <div className="xl:col-span-3">
-            <LeaderboardCard
-              title="Live Battle Leaderboard"
-              fromDate={currentDateStr}
-              podiumRankings={podiumRankings}
-              rankings={rankings}
-            />
+  // PLAYING PHASE (GOD MODE)
+  const totalQuestions = roomState.questions.length;
+
+  return (
+    <div className="max-w-4xl mx-auto w-full">
+      {/* Control Bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 bg-white p-6 border-4 border-slate-100 rounded-3xl shadow-sm">
+        <div>
+          <h2 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-1">Live Arena</h2>
+          <div className="text-4xl font-black text-indigo-900 tracking-widest">{roomState.code}</div>
+        </div>
+        
+        <div className="flex gap-4 items-center">
+          <Timer endTime={roomState.endTime} onTimeUp={handleTimeUp} />
+          <button 
+            onClick={endGame}
+            className="bg-rose-500 hover:bg-rose-600 text-white font-bold px-6 py-3 rounded-xl shadow-[0_4px_0_rgb(159,18,57)] active:shadow-[0_0px_0_rgb(159,18,57)] active:translate-y-1 transition-all"
+          >
+            End Game Early
+          </button>
+        </div>
+      </div>
+
+      {/* HOST TIME UP BANNER */}
+      {isTimeUp && (
+        <div className="mb-8 bg-rose-50 border-4 border-rose-500 text-rose-800 px-6 py-5 rounded-3xl flex flex-col sm:flex-row items-center justify-between shadow-sm animate-pulse">
+          <div className="flex items-center gap-4 mb-4 sm:mb-0">
+            <span className="text-4xl">⏰</span>
+            <div>
+              <h3 className="font-black text-2xl tracking-tight">TIME IS UP!</h3>
+              <p className="font-semibold text-rose-600/80">Students can no longer submit answers.</p>
+            </div>
           </div>
+          <button 
+            onClick={endGame}
+            className="bg-rose-600 text-white font-black px-8 py-4 rounded-xl shadow-[0_4px_0_rgb(159,18,57)] active:shadow-[0_0px_0_rgb(159,18,57)] active:translate-y-1 transition-all text-lg"
+          >
+            Show Leaderboard Now
+          </button>
+        </div>
+      )}
+
+      {/* Live Student Progress */}
+      <div className="bg-white rounded-3xl p-8 border-4 border-slate-100 shadow-xl">
+        <h3 className="text-2xl font-black text-slate-800 mb-6 flex items-center gap-3">
+          <span>📡</span> Live Student Progress
+        </h3>
+        
+        <div className="space-y-6">
+          {playersList.map(player => {
+            const answeredCount = Object.keys(player.answers || {}).length;
+            const progressPercent = Math.round((answeredCount / totalQuestions) * 100);
+            const isDone = answeredCount === totalQuestions;
+            
+            return (
+              <div key={player.id} className="relative">
+                <div className="flex justify-between items-end mb-2">
+                  <div className="flex items-center gap-3">
+                    <img src={player.avatar} alt="avatar" className="w-10 h-10 rounded-full bg-slate-100 border-2 border-slate-200" />
+                    <div>
+                      <span className="font-black text-slate-800 block leading-none">{player.name}</span>
+                      <span className="text-xs font-bold text-slate-400">Score: {player.score}</span>
+                    </div>
+                  </div>
+                  <div className="font-bold text-sm text-slate-500">
+                    {isDone ? '✅ Finished' : `${answeredCount} / ${totalQuestions} Qs`}
+                  </div>
+                </div>
+                
+                {/* Chunky Progress Bar */}
+                <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-500 ease-out ${isDone ? 'bg-emerald-500' : 'bg-indigo-500'}`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+
+          {playersList.length === 0 && (
+            <div className="text-center py-8 text-slate-400 font-bold">
+              No players found in this arena.
+            </div>
+          )}
         </div>
       </div>
     </div>

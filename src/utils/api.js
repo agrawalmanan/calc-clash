@@ -1,49 +1,55 @@
 const BASE_URL = '/api';
 
 export const api = {
-  async createRoom(data) {
-    const res = await fetch(`${BASE_URL}/create-room`, {
+  createRoom: async (hostName, sheetUrl, timeLimit) => {
+    const res = await fetch('/api/create-room', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify({ hostName, sheetUrl, timeLimit })
     });
+    if (!res.ok) throw new Error((await res.json()).error);
     return res.json();
   },
 
-  async joinRoom(roomCode, playerName) {
-    const res = await fetch(`${BASE_URL}/join-room`, {
+  joinRoom: async (playerName, roomCode) => {
+    const res = await fetch('/api/join-room', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomCode, playerName })
+      body: JSON.stringify({ playerName, roomCode })
     });
+    if (!res.ok) throw new Error((await res.json()).error);
     return res.json();
   },
 
-  async startGame(roomCode, hostName) {
-    const res = await fetch(`${BASE_URL}/start-game`, {
+  startGame: async (roomCode) => {
+    const res = await fetch('/api/start-game', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ roomCode, hostName })
+      body: JSON.stringify({ roomCode })
     });
+    if (!res.ok) throw new Error((await res.json()).error);
     return res.json();
   },
 
-  async submitAnswer(data) {
-    const res = await fetch(`${BASE_URL}/submit-answer`, {
+  submitAnswer: async (roomCode, playerId, questionIndex, answer, isCorrect, points) => {
+    const res = await fetch('/api/submit-answer', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+      body: JSON.stringify({ roomCode, playerId, questionIndex, answer, isCorrect, points })
     });
+    if (!res.ok) throw new Error((await res.json()).error);
     return res.json();
   },
 
-  async getRoomStatus(code) {
-    const res = await fetch(`${BASE_URL}/room-status?code=${code}`);
+  getRoomStatus: async (roomCode) => {
+    const res = await fetch(`/api/room-status?code=${roomCode}`);
+    if (!res.ok) throw new Error((await res.json()).error);
     return res.json();
   },
 
-  async getLeaderboard(code) {
-    const res = await fetch(`${BASE_URL}/leaderboard?code=${code}`);
+  getLeaderboard: async (roomCode) => {
+    const res = await fetch(`/api/leaderboard?code=${roomCode}`);
+    if (!res.ok) throw new Error((await res.json()).error);
     return res.json();
   }
 };
