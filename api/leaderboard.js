@@ -8,23 +8,29 @@ export default async function handler(req, res) {
 
   try {
     const { code } = req.query;
-    const data = await redis.get(`room:${code?.toUpperCase()}`);
-    if (!data) return res.status(404).json({ error: 'Room not found' });
+    const formattedCode = code?.toUpperCase();
+    if (!formattedCode) return res.status(400).json({ error: 'Room code required' });
 
-    const room = typeof data === 'string' ? JSON.parse(data) : data;
+    const room = await redis.get(`room:${formattedCode}`);
+    if (!room) return res.status(404).json({ error: 'Room not found' });
 
-    const leaderboard = room.players
+    // Mark the room as finished so clients polling room-status see the phase change too
+    room.phase = 'leaderboard';
+    await redis.set(`room:${formattedCode}`, room);
+
+    const players = Object.values(room.players || {});
+    const leaderboard = players
       .map(p => ({
         name: p.name,
-        score: p.score,
-        correctCount: p.answers.filter(a => a && a.correct).length,
-        totalQuestions: room.questions.length,
-        finishedAt: p.finishedAt
+        score: p.score || 0,
+        correctCount: Object.values(p.answers || {}).filter(a => a && a.correct).length,
+        totalQuestions: (room.questions || []).length
       }))
       .sort((a, b) => b.score - a.score);
 
-    return res.status(200).json({ success: true, leaderboard });
+    return res.status(200).json({ success: true, room, leaderboard });
   } catch (err) {
-    return res.status(500).json({ error: 'Failed to fetch leaderboard' });
+    console.error('Leaderboard error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to fetch leaderboard' });
   }
 }
