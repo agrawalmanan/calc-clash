@@ -1,32 +1,32 @@
-/**
- * Fetches and parses CSV questions from a published Google Sheet.
- */
+export const DEFAULT_SHEET_URL = process.env.GOOGLE_SHEET_URL || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT534148vnBFD7iXB-7fBebu3hvCV-QGbU63AGkc7qibsJgfMI1ZqcyxksTlQNq9ioFHsgs3RpCBzdt/pub?output=csv';
+
 export async function fetchQuestions(csvUrl) {
-  if (!csvUrl || typeof csvUrl !== 'string' || !csvUrl.startsWith('http')) {
-    throw new Error('Invalid Google Sheet CSV URL. Please publish your Google Sheet as a CSV.');
+  const urlToFetch = csvUrl || DEFAULT_SHEET_URL;
+
+  if (!urlToFetch || typeof urlToFetch !== 'string' || !urlToFetch.startsWith('http')) {
+    throw new Error('Invalid Google Sheet CSV URL. Set GOOGLE_SHEET_URL in Vercel env or provide a valid CSV link.');
   }
 
   let response;
   try {
-    response = await fetch(csvUrl);
+    response = await fetch(urlToFetch);
   } catch (err) {
-    throw new Error('Network error attempting to fetch Google Sheet CSV.');
+    throw new Error(`Failed to connect to Google Sheets URL: ${err.message}`);
   }
 
   if (!response.ok) {
-    throw new Error(`Google Sheet fetch failed with HTTP status ${response.status}. Ensure the sheet is published to web.`);
+    throw new Error(`Google Sheets fetch failed with status ${response.status}. Ensure the sheet is published to web as CSV.`);
   }
 
   const text = await response.text();
-  
-  // Detect if Google returned an HTML login/error page instead of raw CSV
+
   if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
-    throw new Error('Google returned HTML instead of CSV. Make sure you selected "File > Share > Publish to web" and chose "Comma-separated values (.csv)".');
+    throw new Error('Google returned HTML instead of CSV. Select "File > Share > Publish to web" and choose "Comma-separated values (.csv)".');
   }
 
   const rows = parseCSV(text);
   if (rows.length < 2) {
-    throw new Error('Google Sheet CSV contains no question rows.');
+    throw new Error('Google Sheet CSV has no question rows.');
   }
 
   const headers = rows[0].map(h => h.trim());
@@ -34,7 +34,7 @@ export async function fetchQuestions(csvUrl) {
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    if (row.length === 0 || (row.length === 1 && !row[0].trim())) continue;
+    if (!row || row.length === 0 || (row.length === 1 && !row[0].trim())) continue;
 
     const rowObj = {};
     headers.forEach((header, index) => {
@@ -47,13 +47,12 @@ export async function fetchQuestions(csvUrl) {
   }
 
   if (questions.length === 0) {
-    throw new Error('No valid questions found in Google Sheet. Ensure headers include: Topic, Type, Question, Opt 1, Opt 2, Opt 3, Opt 4, Correct Answer, Explanation.');
+    throw new Error('No valid questions found in Google Sheet CSV. Check headers: Topic, Type, Question, Opt 1, Opt 2, Opt 3, Opt 4, Correct Answer, Explanation.');
   }
 
   return questions;
 }
 
-// Lightweight RFC 4180 CSV Parser
 function parseCSV(text) {
   const lines = [];
   let row = [];

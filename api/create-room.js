@@ -1,8 +1,5 @@
 import redis from './lib/redis';
-import { fetchQuestions } from './lib/questions';
-
-// Default CSV URL fallback if process.env.GOOGLE_SHEET_URL is not provided
-const DEFAULT_SHEET_URL = process.env.GOOGLE_SHEET_URL || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vT534148vnBFD7iXB-7fBebu3hvCV-QGbU63AGkc7qibsJgfMI1ZqcyxksTlQNq9ioFHsgs3RpCBzdt/pub?output=csv';
+import { fetchQuestions, DEFAULT_SHEET_URL } from './lib/questions';
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -21,28 +18,39 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { hostName, sheetUrl, timeLimit = 7 } = req.body || {};
+    let body = req.body || {};
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (e) { body = {}; }
+    }
+
+    const { hostName, timeLimit = 7, sheetUrl } = body;
 
     if (!hostName || !hostName.trim()) {
       return res.status(400).json({ error: 'Host name is required.' });
     }
 
-    const targetUrl = (sheetUrl && sheetUrl.trim()) ? sheetUrl.trim() : DEFAULT_SHEET_URL;
+    const targetUrl = (sheetUrl && sheetUrl.trim()) 
+      ? sheetUrl.trim() 
+      : (process.env.GOOGLE_SHEET_URL || DEFAULT_SHEET_URL);
 
-    if (!targetUrl) {
-      return res.status(400).json({ error: 'No Google Sheet CSV URL provided or configured in environment.' });
-    }
-
-    // Fetch questions from published Google Sheet
     const questions = await fetchQuestions(targetUrl);
 
     let roomCode = generateRoomCode();
-    let existing = await redis.get(`room:${roomCode}`);
-    let attempts = 0;
+    let existing = null;
+    try {
+      existing = await redis.get(`room:${roomCode}`);
+    } catch (e) {
+      console.warn('Redis read warning:', e.message);
+    }
 
+    let attempts = 0;
     while (existing && attempts < 10) {
       roomCode = generateRoomCode();
-      existing = await redis.get(`room:${roomCode}`);
+      try {
+        existing = await redis.get(`room:${roomCode}`);
+      } catch (e) {
+        existing = null;
+      }
       attempts++;
     }
 

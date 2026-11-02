@@ -6,7 +6,7 @@ export default function Home() {
   
   // Host state
   const [hostName, setHostName] = useState('');
-  const [timeLimit, setTimeLimit] = useState(7); // Default 7 minutes
+  const [timeLimit, setTimeLimit] = useState(7);
   
   // Player state
   const [playerName, setPlayerName] = useState('');
