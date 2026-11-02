@@ -36,21 +36,12 @@ export default async function handler(req, res) {
     const questions = await fetchQuestions(targetUrl);
 
     let roomCode = generateRoomCode();
-    let existing = null;
-    try {
-      existing = await redis.get(`room:${roomCode}`);
-    } catch (e) {
-      console.warn('Redis read warning:', e.message);
-    }
-
+    let existing = await redis.get(`room:${roomCode}`);
     let attempts = 0;
+
     while (existing && attempts < 10) {
       roomCode = generateRoomCode();
-      try {
-        existing = await redis.get(`room:${roomCode}`);
-      } catch (e) {
-        existing = null;
-      }
+      existing = await redis.get(`room:${roomCode}`);
       attempts++;
     }
 
@@ -69,7 +60,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, roomCode, room: roomData });
   } catch (error) {
-    console.error('Create room error:', error);
+    console.error('Create room handler error:', error);
     return res.status(500).json({ error: error.message || 'Failed to create room' });
   }
 }

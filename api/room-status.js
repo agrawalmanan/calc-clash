@@ -1,39 +1,29 @@
-import redis from './lib/redis.js';
+import redis from './lib/redis';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  res.setHeader('Content-Type', 'application/json');
+
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   try {
     const { code } = req.query;
-    if (!code) return res.status(400).json({ error: 'Code required' });
 
-    const data = await redis.get(`room:${code.toUpperCase()}`);
-    if (!data) return res.status(404).json({ error: 'Room not found' });
+    if (!code) {
+      return res.status(400).json({ error: 'Room code required.' });
+    }
 
-    const room = typeof data === 'string' ? JSON.parse(data) : data;
+    const formattedCode = code.toUpperCase().trim();
+    const room = await redis.get(`room:${formattedCode}`);
 
-    const safeRoom = {
-      code: room.code,
-      host: room.host,
-      topic: room.topic,
-      status: room.status,
-      questionCount: room.questions.length,
-      players: room.players.map(p => ({
-        name: p.name,
-        score: p.score,
-        currentQuestion: p.currentQuestion,
-        finishedAt: p.finishedAt
-      })),
-      questions: room.status === 'finished'
-        ? room.questions
-        : room.questions.map(({ correct, explanation, ...q }) => q)
-    };
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found.' });
+    }
 
-    return res.status(200).json({ success: true, room: safeRoom });
-  } catch (err) {
-    return res.status(500).json({ error: 'Failed to fetch status' });
+    return res.status(200).json({ success: true, room });
+  } catch (error) {
+    console.error('Room status error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to fetch room status' });
   }
 }

@@ -1,51 +1,56 @@
-import redis from './lib/redis.js';
+import redis from './lib/redis';
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  res.setHeader('Content-Type', 'application/json');
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
 
   try {
-    const { roomCode, playerName } = req.body;
-    const code = roomCode?.toUpperCase();
-
-    const data = await redis.get(`room:${code}`);
-    if (!data) {
-      return res.status(404).json({ error: 'Room not found! Check code.' });
+    let body = req.body || {};
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body); } catch (e) { body = {}; }
     }
 
-    const room = typeof data === 'string' ? JSON.parse(data) : data;
+    const { playerName, roomCode } = body;
 
-    if (room.status === 'playing') {
-      return res.status(400).json({ error: 'Battle already started!' });
-    }
-    if (room.status === 'finished') {
-      return res.status(400).json({ error: 'This battle has ended.' });
+    if (!playerName || !roomCode) {
+      return res.status(400).json({ error: 'Player name and room code are required.' });
     }
 
-    const existingPlayer = room.players.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-    if (existingPlayer) {
-      return res.status(400).json({ error: 'Name already taken in this room!' });
+    const formattedCode = roomCode.toUpperCase().trim();
+    const room = await redis.get(`room:${formattedCode}`);
+
+    if (!room) {
+      return res.status(404).json({ error: 'Room not found. Please check the 4-letter code.' });
     }
 
-    room.players.push({
-      name: playerName,
+    const playerId = 'player_' + Math.random().toString(36).substr(2, 9);
+    const avatar = `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(playerName.trim())}`;
+
+    const playerObj = {
+      id: playerId,
+      name: playerName.trim(),
+      avatar,
       score: 0,
-      currentQuestion: 0,
-      answers: [],
-      finishedAt: null
-    });
-
-    await redis.set(`room:${code}`, JSON.stringify(room), { ex: 14400 });
-
-    const safeRoom = {
-      ...room,
-      questions: room.questions.map(({ correct, explanation, ...q }) => q)
+      streak: 0,
+      answers: {}
     };
 
-    return res.status(200).json({ success: true, room: safeRoom });
-  } catch (err) {
-    return res.status(500).json({ error: 'Failed to join room' });
+    room.players = room.players || {};
+    room.players[playerId] = playerObj;
+
+    await redis.set(`room:${formattedCode}`, room);
+
+    return res.status(200).json({
+      success: true,
+      playerId,
+      player: playerObj,
+      room
+    });
+  } catch (error) {
+    console.error('Join room error:', error);
+    return res.status(500).json({ error: error.message || 'Failed to join room' });
   }
 }
