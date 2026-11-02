@@ -5,29 +5,37 @@ export async function fetchQuestions(csvUrl) {
   const targetUrl = csvUrl || DEFAULT_SHEET_URL;
 
   if (!targetUrl || typeof targetUrl !== 'string' || !targetUrl.startsWith('http')) {
-    throw new Error('Invalid Google Sheet URL. Set GOOGLE_SHEET_URL in Vercel env or provide a valid CSV link.');
+    throw new Error('No Google Sheet URL set! Please paste your published Google Sheet CSV URL into DEFAULT_SHEET_URL in api/lib/questions.js');
   }
 
   let response;
   try {
-    response = await fetch(targetUrl);
+    response = await fetch(targetUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) CalcClash/1.0'
+      }
+    });
   } catch (err) {
-    throw new Error(`Failed to reach Google Sheets CSV URL: ${err.message}`);
+    throw new Error(`Network error connecting to Google Sheet: ${err.message}`);
   }
 
   if (!response.ok) {
-    throw new Error(`Google Sheets fetch failed with HTTP status ${response.status}. Ensure your sheet is published to web as CSV.`);
+    throw new Error(`Google Sheets responded with status ${response.status}. Make sure your sheet is published to web as CSV.`);
   }
 
   const text = await response.text();
 
+  if (!text || text.trim() === '') {
+    throw new Error('The Google Sheet CSV returned an empty document.');
+  }
+
   if (text.includes('<!DOCTYPE html>') || text.includes('<html')) {
-    throw new Error('Google returned HTML instead of CSV. Ensure you clicked "File > Share > Publish to web" and chose "Comma-separated values (.csv)".');
+    throw new Error('Google returned HTML instead of CSV. Go to "File > Share > Publish to web" and choose "Comma-separated values (.csv)".');
   }
 
   const rows = parseCSV(text);
   if (rows.length < 2) {
-    throw new Error('Google Sheet CSV contains no question rows.');
+    throw new Error('Google Sheet CSV has no question rows.');
   }
 
   const headers = rows[0].map(h => h.trim());
@@ -48,7 +56,7 @@ export async function fetchQuestions(csvUrl) {
   }
 
   if (questions.length === 0) {
-    throw new Error('No valid questions found in sheet. Headers must include: Topic, Type, Question, Opt 1, Opt 2, Opt 3, Opt 4, Correct Answer, Explanation.');
+    throw new Error('No valid questions found. Ensure CSV headers: Topic, Type, Question, Opt 1, Opt 2, Opt 3, Opt 4, Correct Answer, Explanation.');
   }
 
   return questions;

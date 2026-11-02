@@ -33,7 +33,12 @@ export default async function handler(req, res) {
       ? sheetUrl.trim() 
       : (process.env.GOOGLE_SHEET_URL || DEFAULT_SHEET_URL);
 
-    const questions = await fetchQuestions(targetUrl);
+    let questions;
+    try {
+      questions = await fetchQuestions(targetUrl);
+    } catch (sheetErr) {
+      return res.status(400).json({ error: sheetErr.message });
+    }
 
     let roomCode = generateRoomCode();
     let existing = await redis.get(`room:${roomCode}`);
@@ -60,7 +65,7 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ success: true, roomCode, room: roomData });
   } catch (error) {
-    console.error('Create room handler error:', error);
-    return res.status(500).json({ error: error.message || 'Failed to create room' });
+    console.error('Create room error:', error);
+    return res.status(400).json({ error: error.message || 'Failed to create room' });
   }
 }
